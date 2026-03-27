@@ -1,0 +1,87 @@
+{
+  "name": "fusiku",
+  "version": "1.0.1",
+  "description": "Fusiku Desktop - Think Smart. Play Cool.",
+  "main": "electron-main.js",
+  "scripts": {
+    "dev": "electron .",
+    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false && npm --prefix .. run build:frontend && npm --prefix .. run build:backend && electron-builder"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "electron-updater": "^6.8.3"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.fusiku.app",
+    "productName": "Fusiku",
+    "artifactName": "Fusiku-Setup-${version}.${ext}",
+    "directories": {
+      "output": "../dist"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_USERNAME",
+        "repo": "fusiku-updates"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../shared/config.json",
+        "to": "shared/config.json"
+      },
+      {
+        "from": "../backend/dist",
+        "to": "backend/dist"
+      },
+      {
+        "from": "../backend/node_modules",
+        "to": "backend/node_modules"
+      },
+      {
+        "from": "../backend/prisma",
+        "to": "backend/prisma"
+      },
+      {
+        "from": "../backend/.env",
+        "to": "backend/.env"
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist"
+      },
+      {
+        "from": "icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico",
+      "executableName": "Fusiku"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Fusiku",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico"
+    },
+    "files": [
+      "../frontend/dist/**/*",
+      "../backend/dist/**/*",
+      "electron-main.js",
+      "preload.js",
+      "icon.ico",
+      "**/*"
+    ]
+  }
+}

@@ -1,0 +1,220 @@
+// FUSIKU ERP - Prisma Schema
+// Think Smart. Play Cool.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs     AuditLog[]
+  repairs       Repair[]
+  refurbishJobs RefurbishJob[]
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  inventory Inventory[]
+  purchases Purchase[]
+  sales     Sale[]
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  contact   String?
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  purchases Purchase[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales Sale[]
+}
+
+model Inventory {
+  id             String   @id @default(cuid())
+  imei           String   @unique
+  brand          String
+  model          String
+  storage        String
+  color          String
+  condition      String
+  purchasePrice  Decimal  @db.Decimal(12, 2)
+  sellingPrice   Decimal  @db.Decimal(12, 2)
+  branchId       String
+  branch         Branch   @relation(fields: [branchId], references: [id])
+  status         String   @default("available") // available, sold, reserved, in_repair, in_refurbish
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  imeiRecords IMEIRecord[]
+  sales       Sale[]
+}
+
+model IMEIRecord {
+  id          String   @id @default(cuid())
+  imei        String
+  inventoryId String?
+  inventory   Inventory? @relation(fields: [inventoryId], references: [id])
+  action      String   // check, blacklist, etc.
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([imei])
+}
+
+model Purchase {
+  id          String   @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  totalAmount Decimal  @db.Decimal(12, 2)
+  currency    String   @default("USD")
+  status      String   @default("pending") // pending, completed, cancelled
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseItems PurchaseItem[]
+}
+
+model PurchaseItem {
+  id          String   @id @default(cuid())
+  purchaseId  String
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  imei        String
+  brand       String
+  model       String
+  storage     String
+  color       String
+  condition   String
+  price       Decimal  @db.Decimal(12, 2)
+  quantity    Int      @default(1)
+}
+
+model Sale {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  totalAmount Decimal  @db.Decimal(12, 2)
+  profit      Decimal  @db.Decimal(12, 2) @default(0)
+  paymentMethod String @default("cash")
+  status      String   @default("completed")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  saleItems SaleItem[]
+}
+
+model SaleItem {
+  id            String   @id @default(cuid())
+  saleId        String
+  sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  inventoryId   String
+  inventory     Inventory @relation(fields: [inventoryId], references: [id])
+  imei          String
+  sellingPrice  Decimal  @db.Decimal(12, 2)
+  purchasePrice Decimal  @db.Decimal(12, 2)
+  profit        Decimal  @db.Decimal(12, 2)
+}
+
+model Repair {
+  id              String   @id @default(cuid())
+  imei            String
+  faultDescription String
+  technicianId   String
+  technician     User     @relation(fields: [technicianId], references: [id])
+  repairCost     Decimal  @db.Decimal(12, 2)
+  status         String   @default("pending") // pending, in_progress, completed, cancelled
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model RefurbishJob {
+  id              String   @id @default(cuid())
+  incomingDevice  String
+  partsUsed       String?
+  laborCost       Decimal  @db.Decimal(12, 2)
+  finalCondition  String
+  technicianId    String
+  technician      User     @relation(fields: [technicianId], references: [id])
+  status          String   @default("pending") // pending, in_progress, completed
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  currency  String
+  rate      Decimal  @db.Decimal(12, 6)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entity     String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}

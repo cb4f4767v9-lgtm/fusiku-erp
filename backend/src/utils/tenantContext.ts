@@ -1,0 +1,43 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+export type TenantContext = {
+  userId: string;
+  /** Set for normal tenant users; may be empty when platform admin has no tenant row. */
+  companyId: string;
+  branchId?: string;
+  /** Platform super-admin: Prisma tenant middleware does not enforce companyId. */
+  isSystemAdmin?: boolean;
+};
+
+/** Canonical role names for platform-level (cross-tenant) access. */
+export const PLATFORM_ADMIN_ROLE_NAMES = new Set(['SYSTEM_ADMIN', 'SystemAdmin']);
+
+export function isPlatformAdminRole(roleName?: string | null): boolean {
+  return !!roleName && PLATFORM_ADMIN_ROLE_NAMES.has(roleName);
+}
+
+const storage = new AsyncLocalStorage<TenantContext>();
+
+export function runWithTenantContext<T>(ctx: TenantContext, fn: () => T): T {
+  return storage.run(ctx, fn);
+}
+
+export function isTenantSystemAdmin(): boolean {
+  return !!getTenantContext()?.isSystemAdmin;
+}
+
+export function getTenantContext(): TenantContext | undefined {
+  return storage.getStore();
+}
+
+/** Use in authenticated request handlers / services that run under authMiddleware. */
+export function requireTenantCompanyId(): string {
+  const c = getTenantContext()?.companyId;
+  if (!c) {
+    const err = new Error('Tenant context required');
+    (err as any).statusCode = 403;
+    throw err;
+  }
+  return c;
+}
+

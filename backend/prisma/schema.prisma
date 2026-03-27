@@ -1,0 +1,1121 @@
+// FUSIKU ERP - Prisma Schema
+// Think Smart. Play Cool.
+// Phase 5 SaaS Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  logo      String?
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  branches    Branch[]
+  users       User[]
+  suppliers   Supplier[]
+  customers   Customer[]
+  purchases   Purchase[]
+  sales       Sale[]
+  repairs     Repair[]
+  stockAlerts StockAlert[]
+  companySettings CompanySettings?
+  subscriptions   Subscription[]
+  apiKeys     ApiKey[]
+  webhooks    Webhook[]
+
+  inventory        Inventory[]
+  barcodeSequences BarcodeSequence[]
+  stockMovements   StockMovement[]
+  transfers        Transfer[]
+  refurbishJobs    RefurbishJob[]
+  fileUploads      FileUpload[]
+  aiAlerts         AIAlert[]
+  integrationLogs  IntegrationLog[]
+  deviceHistories  DeviceHistory[]
+  inventoryParts   InventoryPart[]
+  expenses         Expense[]
+  payments         Payment[]
+  profitReports    ProfitReport[]
+}
+
+// Master Data - Core foundation for ERP
+model MasterCategory {
+  id     String  @id @default(cuid())
+  name   String
+  nameZh String?
+  nameAr String?
+  nameUr String?
+
+  @@unique([name])
+}
+
+model MasterSparePart {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model MasterScreenQuality {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model MasterToolBrand {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model StorageSize {
+  id      String  @id @default(cuid())
+  sizeGb  Int     @unique  // 16, 32, 64, 128, 256, 512, 1024
+  label   String  @unique  // "16GB", "64GB", "1TB"
+}
+
+model DeviceColor {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model DeviceQuality {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model DeviceFault {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model CompanySettings {
+  id            String   @id @default(cuid())
+  companyId     String   @unique
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  currency      String   @default("USD")
+  timezone      String   @default("UTC")
+  taxRate       Float    @default(0)
+  invoicePrefix String  @default("INV")
+  logo          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  price       Float
+  maxUsers    Int      @default(10)
+  maxBranches Int      @default(3)
+  features    String?    // e.g. ["inventory", "reports", "multi_branch"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  planId      String
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("active") // active | expired | cancelled
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId])
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  rolePermissions RolePermission[]
+  createdAt   DateTime @default(now())
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
+}
+
+model Role {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  description    String?
+  users          User[]
+  rolePermissions RolePermission[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+// SystemAdmin role has no companyId - can access global admin
+
+model User {
+  id         String    @id @default(cuid())
+  email      String
+  password   String
+  name       String
+  phone      String?
+  roleId     String
+  role       Role      @relation(fields: [roleId], references: [id])
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId   String?
+  branch     Branch?   @relation(fields: [branchId], references: [id])
+  isActive   Boolean   @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  auditLogs     AuditLog[]
+  activityLogs  ActivityLog[]
+  repairs       Repair[]
+  refurbishJobs RefurbishJob[]
+  transfers     Transfer[]
+  passwordResets PasswordReset[]
+  branchPermissions BranchPermission[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
+model Branch {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name       String
+  code       String?
+  adminName  String?
+  currency   String?  @default("USD")
+  country    String?
+  province   String?
+  city       String?
+  address    String?
+  phone      String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users             User[]
+  inventory         Inventory[]
+  purchases         Purchase[]
+  sales             Sale[]
+  transfersFrom     Transfer[] @relation("TransferFrom")
+  transfersTo       Transfer[] @relation("TransferTo")
+  stockMovements    StockMovement[]
+  inventoryLocations InventoryLocation[]
+  inventoryParts    InventoryPart[]
+  branchPermissions BranchPermission[]
+  contacts          BranchContact[]
+
+  @@index([companyId])
+}
+
+model BranchContact {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  contactType String   // phone
+  value       String
+  createdAt   DateTime @default(now())
+
+  @@index([branchId])
+}
+
+model Supplier {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  companyName    String?
+  email          String?
+  website        String?
+  country        String   // required
+  province       String?
+  city           String?
+  address        String?
+  openingBalance Float  @default(0)
+  balanceType    String   @default("debit")
+  paymentMethod  String?
+  moneyStatus    String?
+  availableBalance Float  @default(0)
+  blockedBalance  Float  @default(0)
+  // total_balance = availableBalance + blockedBalance (computed)
+  // Legacy
+  contact        String?
+  phone          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  purchases       Purchase[]
+  supplierRatings SupplierRating[]
+  priceHistory   PriceHistory[]
+  contacts       SupplierContact[]
+
+  @@index([companyId])
+}
+
+model SupplierContact {
+  id          String   @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  contactType String   // phone | whatsapp | wechat | email | alipay
+  value       String
+  qrCodeUrl   String?
+  createdAt   DateTime @default(now())
+
+  @@index([supplierId])
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name           String
+  companyName    String?
+  email          String?
+  website        String?
+  country        String?
+  province       String?
+  city           String?
+  address        String?
+  openingBalance Float  @default(0)
+  balanceType    String   @default("debit")
+  paymentMethod  String?
+  moneyStatus    String?
+  phone          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sales     Sale[]
+  repairs   Repair[]
+  purchases Purchase[]
+  contacts  CustomerContact[]
+
+  @@index([companyId])
+}
+
+model CustomerContact {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contactType String   // phone | whatsapp | wechat | email
+  value       String
+  qrCodeUrl   String?
+  createdAt   DateTime @default(now())
+
+  @@index([customerId])
+}
+
+model PhoneBrand {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  phoneModels PhoneModel[]
+}
+
+model PhoneModel {
+  id          String   @id @default(cuid())
+  brandId     String
+  brand       PhoneBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name        String
+  releaseYear Int?
+  createdAt   DateTime @default(now())
+  variants    PhoneVariant[]
+
+  @@unique([brandId, name])
+  @@index([brandId])
+}
+
+model PhoneVariant {
+  id        String   @id @default(cuid())
+  modelId   String
+  model     PhoneModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  storage   String
+  color     String
+  createdAt DateTime @default(now())
+  inventory Inventory[]
+  deviceSpecs DeviceSpecification[]
+
+  @@unique([modelId, storage, color])
+}
+
+model DeviceGrade {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  inventory   Inventory[]
+  refurbishJobs RefurbishJob[]
+}
+
+model Inventory {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  imei           String   @unique
+  barcode        String?  @unique
+  brand          String
+  model          String
+  storage        String
+  color          String
+  condition      String
+  purchasePrice  Float
+  cargoCost      Float  @default(0)
+  sellingPrice   Float
+  branchId       String
+  branch         Branch   @relation(fields: [branchId], references: [id])
+  status         String   @default("available")
+  notes          String?
+  phoneVariantId String?
+  phoneVariant   PhoneVariant? @relation(fields: [phoneVariantId], references: [id])
+  deviceGradeId  String?
+  deviceGrade    DeviceGrade? @relation(fields: [deviceGradeId], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  imeiRecords    IMEIRecord[]
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+  transferItems  TransferItem[]
+  deviceHistory  DeviceHistory[]
+
+  @@index([imei])
+  @@index([barcode])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([createdAt])
+}
+
+model BarcodeSequence {
+  id         String   @id @default(cuid())
+  companyId  String   @unique
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lastNumber Int      @default(0)
+  updatedAt  DateTime @updatedAt
+}
+
+model IMEIRecord {
+  id          String   @id @default(cuid())
+  imei        String
+  inventoryId String?
+  inventory   Inventory? @relation(fields: [inventoryId], references: [id])
+  action      String
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([imei])
+}
+
+model StockMovement {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventoryId   String
+  inventory     Inventory @relation(fields: [inventoryId], references: [id])
+  movementType  String   // purchase | sale | repair | refurbish | transfer | adjustment
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  userId        String?
+  referenceId   String?
+  quantity      Int      @default(1)
+  createdAt     DateTime @default(now())
+
+  @@index([inventoryId])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([createdAt])
+}
+
+model Transfer {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  fromBranchId  String
+  fromBranch    Branch   @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranchId    String
+  toBranch      Branch   @relation("TransferTo", fields: [toBranchId], references: [id])
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  status        String   @default("pending") // pending | approved | completed | cancelled
+  approvedById  String?
+  approvedAt    DateTime?
+  transferMarginPercent Float @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  transferItems TransferItem[]
+  @@index([companyId])
+}
+
+model TransferItem {
+  id          String   @id @default(cuid())
+  transferId  String
+  transfer    Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+}
+
+model Purchase {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  totalAmount Float
+  cargoCost   Float  @default(0)
+  currency    String   @default("USD")
+  status      String   @default("pending")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseItems PurchaseItem[]
+  inventoryBatches InventoryBatch[]
+  @@index([companyId])
+}
+
+model PurchaseItem {
+  id          String   @id @default(cuid())
+  purchaseId  String
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  imei        String
+  brand       String
+  model       String
+  storage     String
+  color       String
+  condition   String
+  price       Float
+  quantity    Int      @default(1)
+}
+
+model Sale {
+  id            String    @id @default(cuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId      String
+  branch        Branch    @relation(fields: [branchId], references: [id])
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  totalAmount   Float
+  profit        Float   @default(0)
+  paymentMethod String    @default("cash")
+  status        String    @default("completed")
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  saleItems   SaleItem[]
+  warranties  Warranty[]
+  @@index([companyId])
+}
+
+model SaleItem {
+  id            String   @id @default(cuid())
+  saleId        String
+  sale          Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  inventoryId   String
+  inventory     Inventory @relation(fields: [inventoryId], references: [id])
+  imei          String
+  sellingPrice  Float
+  purchasePrice Float
+  profit        Float
+}
+
+model Repair {
+  id               String    @id @default(cuid())
+  companyId        String
+  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  imei             String
+  faultDescription String
+  technicianId     String
+  technician       User      @relation(fields: [technicianId], references: [id])
+  customerId       String?
+  customer         Customer? @relation(fields: [customerId], references: [id])
+  repairCost       Float
+  status           String    @default("pending") // received | diagnosing | waiting_parts | repairing | testing | completed
+  notes            String?
+  photoUrl         String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  repairParts      RepairPart[]
+  @@index([companyId])
+}
+
+model RefurbishJob {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  incomingDevice  String
+  partsUsed       String?
+  laborCost       Float
+  finalCondition  String
+  deviceGradeId   String?
+  deviceGrade     DeviceGrade? @relation(fields: [deviceGradeId], references: [id])
+  technicianId    String
+  technician      User     @relation(fields: [technicianId], references: [id])
+  status          String   @default("pending") // pending | in_progress | completed
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  refurbishmentTests RefurbishmentTest[]
+  @@index([companyId])
+}
+
+model ExchangeRate {
+  id            String    @id @default(cuid())
+  currency      String
+  rate          Float
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entity     String
+  entityId   String?
+  oldValue   String?
+  newValue   String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}
+
+model StockAlert {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type        String   @default("low_stock")
+  brand       String
+  model       String
+  storage     String?
+  message     String
+  count       Int
+  threshold   Int      @default(3)
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model FileUpload {
+  id           String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  entityType   String   // repair | supplier | device
+  entityId     String?
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+
+  @@index([companyId])
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  timestamp  DateTime @default(now())
+}
+
+model Warranty {
+  id            String   @id @default(cuid())
+  imei          String   @unique
+  saleId        String?
+  sale          Sale?    @relation(fields: [saleId], references: [id])
+  warrantyStart DateTime
+  warrantyEnd   DateTime
+  notes         String?
+  createdAt     DateTime @default(now())
+}
+
+// Phase 6 AI Intelligence
+model TACCache {
+  id          String   @id @default(cuid())
+  tac         String   @unique
+  brand       String
+  model       String
+  storage     String?
+  color       String?
+  releaseYear Int?
+  deviceCategory String?
+  source      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tac])
+}
+
+model DeviceSpecification {
+  id          String   @id @default(cuid())
+  brand       String
+  model       String
+  chipset     String?
+  ram         String?
+  storage     String?
+  battery     String?
+  displaySize String?
+  releaseYear Int?
+  deviceCategory String?
+  phoneVariantId String?
+  phoneVariant   PhoneVariant? @relation(fields: [phoneVariantId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  features DeviceFeature[]
+
+  @@unique([brand, model])
+}
+
+model DeviceFeature {
+  id         String   @id @default(cuid())
+  specId     String
+  spec       DeviceSpecification @relation(fields: [specId], references: [id], onDelete: Cascade)
+  featureKey String
+  featureValue String
+  createdAt  DateTime @default(now())
+
+  @@index([specId])
+}
+
+model IMEIHistory {
+  id         String   @id @default(cuid())
+  imei       String
+  actionType String   // purchase | repair | refurbish | sale | transfer
+  location   String?
+  userId     String?
+  referenceId String?
+  timestamp  DateTime @default(now())
+
+  @@index([imei])
+  @@index([timestamp])
+}
+
+model MarketPrice {
+  id          String   @id @default(cuid())
+  brand       String
+  model       String
+  storage     String?
+  averagePrice Float
+  source      String?
+  updatedAt   DateTime @updatedAt
+
+  @@index([brand, model])
+}
+
+// Phase 8 - Installation system
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Phase 9 - AI Business Automation
+model AIAlert {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type        String   // high_profit | repair_spike | fast_selling | inventory_risk | price_optimization
+  title       String
+  message     String
+  severity    String   @default("info") // info | warning | success
+  data        String?    // extra context
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+// Phase 10 - Platform API & Extension Ecosystem
+model ApiKey {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  key         String   @unique
+  permissions String // read_inventory, create_sales, read_reports, etc. (comma-separated)
+  lastUsedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([companyId])
+  @@index([key])
+}
+
+model Webhook {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  url       String
+  eventType String   // sale.completed | repair.completed | inventory.updated | low_stock.alert
+  secret    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+  @@index([eventType])
+}
+
+model IntegrationLog {
+  id               String   @id @default(cuid())
+  companyId        String
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  integrationType  String   // api | webhook | ecommerce | accounting | shipping
+  requestPayload   String?
+  responseStatus   Int?
+  responseBody     String?
+  errorMessage     String?
+  timestamp        DateTime @default(now())
+
+  @@index([companyId])
+  @@index([timestamp])
+}
+
+model MarketplaceApp {
+  id           String   @id @default(cuid())
+  appName      String
+  developer    String
+  description  String?
+  permissions  String
+  webhookUrl   String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  installs MarketplaceInstall[]
+}
+
+model MarketplaceInstall {
+  id        String         @id @default(cuid())
+  companyId String
+  appId     String
+  app       MarketplaceApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  config    String?
+  installedAt DateTime     @default(now())
+
+  @@unique([companyId, appId])
+  @@index([companyId])
+}
+
+// =============================================================================
+// ERP EXTENSION — Database Architecture (Phase 11)
+// Extends schema for phone refurbishing business with IMEI tracking.
+// =============================================================================
+
+// --- 1. IMEI Intelligence System ---
+
+model DeviceHistory {
+  id          String   @id @default(cuid())
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventoryId String?
+  inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  imei        String
+  action      String   // purchase | repair | refurbish | sale | transfer | grade_change
+  fromStatus  String?
+  toStatus    String?
+  fromGrade   String?
+  toGrade     String?
+  purchaseId  String?
+  repairId    String?
+  saleId      String?
+  transferId  String?
+  userId      String?
+  notes       String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+
+  @@index([imei])
+  @@index([companyId])
+  @@index([inventoryId])
+  @@index([createdAt])
+}
+
+// --- 2. Smart Inventory System ---
+
+model InventoryLocation {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name        String   // e.g. "Shelf A1", "Warehouse Zone B"
+  code        String?
+  type        String   @default("shelf") // shelf | zone | bin | counter
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parts       InventoryPart[]
+
+  @@unique([branchId, code])
+  @@index([branchId])
+}
+
+model InventoryBatch {
+  id          String   @id @default(cuid())
+  purchaseId  String?
+  purchase    Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  batchNumber String   @unique
+  receivedAt  DateTime @default(now())
+  expiryDate  DateTime?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parts       InventoryPart[]
+
+  @@index([purchaseId])
+}
+
+model InventoryPart {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sku           String
+  name          String
+  category      String   // part | accessory | tool
+  quantity      Int      @default(0)
+  minQuantity   Int      @default(0)
+  unit          String   @default("pcs")
+  unitCost      Float  @default(0)
+  locationId    String?
+  location      InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  batchId       String?
+  batch         InventoryBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  repairParts   RepairPart[]
+  movements     InventoryPartMovement[]
+
+  @@unique([branchId, sku])
+  @@index([companyId])
+  @@index([branchId])
+  @@index([category])
+}
+
+model InventoryPartMovement {
+  id            String   @id @default(cuid())
+  partId        String
+  part          InventoryPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+  movementType  String   // in | out | adjust | transfer
+  quantity      Int
+  referenceType String?  // repair | refurbish | purchase
+  referenceId   String?
+  branchId      String
+  userId        String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@index([partId])
+  @@index([createdAt])
+}
+
+// --- 3. Repair Management System ---
+
+model RepairPart {
+  id          String   @id @default(cuid())
+  repairId    String
+  repair      Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  partId      String?
+  part        InventoryPart? @relation(fields: [partId], references: [id], onDelete: SetNull)
+  partName    String   // denormalized for history
+  quantity    Int      @default(1)
+  unitCost    Float  @default(0)
+  totalCost   Float  @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([repairId])
+}
+
+// --- 4. Refurbishing Pipeline ---
+
+model RefurbishmentTest {
+  id              String   @id @default(cuid())
+  refurbishJobId  String
+  refurbishJob    RefurbishJob @relation(fields: [refurbishJobId], references: [id], onDelete: Cascade)
+  testType        String   // display | battery | camera | connectivity | cosmetic
+  status          String   @default("pending") // pending | pass | fail
+  notes           String?
+  testedAt        DateTime?
+  testedById      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  results         RefurbishmentResult[]
+
+  @@index([refurbishJobId])
+}
+
+model RefurbishmentResult {
+  id        String   @id @default(cuid())
+  testId    String
+  test      RefurbishmentTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  field     String   // grade_before | grade_after | cosmetic_work | defect_found
+  value     String
+  createdAt DateTime @default(now())
+
+  @@index([testId])
+}
+
+// --- 5. Supplier & Purchasing System ---
+
+model SupplierRating {
+  id          String   @id @default(cuid())
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  rating      Int      // 1-5
+  deliveryTime Int?    // days
+  qualityScore Float?
+  notes       String?
+  orderId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([supplierId])
+}
+
+model PriceHistory {
+  id          String   @id @default(cuid())
+  supplierId  String?
+  supplier    Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  brand       String
+  model       String
+  storage     String?
+  condition   String?
+  price       Float
+  recordedAt  DateTime @default(now())
+
+  @@index([supplierId])
+  @@index([brand, model])
+}
+
+// --- 6. Multi-Branch System ---
+
+model BranchPermission {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  canView   Boolean  @default(true)
+  canEdit   Boolean  @default(false)
+  canTransfer Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, branchId])
+  @@index([userId])
+  @@index([branchId])
+}
+
+// --- 7. Financial Intelligence System ---
+
+model Expense {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId    String?
+  category    String   // rent | utilities | parts | labor | shipping | other
+  amount      Float
+  currency    String   @default("USD")
+  description String?
+  referenceType String? // repair | refurbish | transfer
+  referenceId String?
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([expenseDate])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  saleId        String?
+  purchaseId    String?
+  amount        Float
+  method        String   @default("cash") // cash | card | transfer | mobile
+  reference     String?
+  status        String   @default("completed")
+  paidAt        DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([companyId])
+  @@index([saleId])
+  @@index([purchaseId])
+}
+
+model ProfitReport {
+  id            String   @id @default(cuid())
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId      String?
+  periodType    String   // daily | weekly | monthly
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalRevenue Float  @default(0)
+  totalCost     Float  @default(0)
+  repairCost    Float  @default(0)
+  partsCost     Float  @default(0)
+  profit        Float  @default(0)
+  deviceCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([companyId, branchId, periodType, periodStart])
+  @@index([companyId])
+  @@index([periodStart])
+}

@@ -1,0 +1,196 @@
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { prisma } from '../utils/prisma';
+import { generateToken, generateRefreshToken, verifyToken, decodeToken } from '../utils/jwt';
+import { getTenantContext, isPlatformAdminRole } from '../utils/tenantContext';
+import { activityLogService } from './activityLog.service';
+import { emailService } from './email.service';
+import { assertValidSetupPassword, isBcryptHash, isValidEmailStrict } from '../utils/validation';
+
+export const authService = {
+  async login(email: string, password: string) {
+    const raw = String(email || '').trim();
+    const normalized = raw.toLowerCase();
+    if (!isValidEmailStrict(normalized)) throw new Error('Invalid credentials');
+
+    const user = await prisma.user.findFirst({
+      where: {
+        isActive: true,
+        OR: [{ email: normalized }, { email: raw }],
+      },
+      include: { role: true, branch: true, company: true },
+    });
+
+    if (!user) throw new Error('Invalid credentials');
+
+    if (!user.password || !isBcryptHash(user.password)) {
+      const err: any = new Error(
+        'Account configuration error: password is not stored securely. Contact your administrator.'
+      );
+      err.statusCode = 403;
+      throw err;
+    }
+
+    const valid = bcrypt.compareSync(password, user.password);
+    if (!valid) throw new Error('Invalid credentials');
+
+    await activityLogService.log({ userId: user.id, action: 'user_login', entityType: 'User', entityId: user.id });
+
+    const isSystemAdmin = isPlatformAdminRole(user.role.name);
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      roleId: user.roleId,
+      roleName: user.role.name,
+      ...(user.companyId ? { companyId: user.companyId } : {}),
+      branchId: user.branchId || undefined,
+      isSystemAdmin,
+    };
+    const token = generateToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    return {
+      token,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role.name,
+        companyId: (user as any).companyId,
+        branchId: user.branchId,
+        branch: user.branch?.name
+      }
+    };
+  },
+
+  async refresh(tokenOrRefreshToken: string) {
+    let payload = null;
+    try {
+      payload = verifyToken(tokenOrRefreshToken);
+    } catch {
+      payload = decodeToken(tokenOrRefreshToken);
+    }
+    if (!payload?.userId) throw new Error('Invalid or expired token');
+
+    const user = await prisma.user.findFirst({
+      where: { id: payload.userId, isActive: true },
+      include: { role: true }
+    });
+    if (!user) throw new Error('User not found or inactive');
+
+    const isSystemAdmin = isPlatformAdminRole(user.role.name);
+    const newPayload = {
+      userId: user.id,
+      email: user.email,
+      roleId: user.roleId,
+      roleName: user.role.name,
+      ...(user.companyId ? { companyId: user.companyId } : {}),
+      branchId: user.branchId || undefined,
+      isSystemAdmin,
+    };
+    return {
+      token: generateToken(newPayload),
+      refreshToken: generateRefreshToken(newPayload)
+    };
+  },
+
+  async register(data: { email: string; password: string; name: string; roleId: string; companyId: string; branchId?: string }) {
+    const emailNorm = String(data.email || '').trim().toLowerCase();
+    if (!isValidEmailStrict(emailNorm)) throw new Error('Invalid email format');
+    if (!data.password || typeof data.password !== 'string') throw new Error('Password is required');
+
+    const exists = await prisma.user.findFirst({ where: { email: emailNorm, companyId: data.companyId } });
+    if (exists) throw new Error('Email already registered');
+
+    const hashed = bcrypt.hashSync(data.password, 10);
+    if (!isBcryptHash(hashed)) throw new Error('Password hashing failed');
+    const user = await prisma.user.create({
+      data: { ...data, email: emailNorm, password: hashed },
+      include: { role: true, branch: true, company: true }
+    });
+
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role.name,
+      branchId: user.branchId,
+      branch: user.branch?.name
+    };
+  },
+
+  async forgotPassword(email: string, baseUrl?: string) {
+    const raw = String(email || '').trim();
+    const normalized = raw.toLowerCase();
+    if (!isValidEmailStrict(normalized)) return;
+    const user = await prisma.user.findFirst({
+      where: { isActive: true, OR: [{ email: normalized }, { email: raw }] },
+    });
+    if (!user) return; // Don't reveal if email exists
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await prisma.passwordReset.deleteMany({ where: { userId: user.id } });
+    await prisma.passwordReset.create({ data: { userId: user.id, token, expiresAt } });
+
+    const url = baseUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetLink = `${url.replace(/\/$/, '')}/reset-password?token=${token}`;
+    await emailService.sendPasswordReset(user.email, resetLink, user.name);
+  },
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const ctx = getTenantContext();
+    if (!ctx) throw new Error('Unauthorized');
+    const isAdmin = ctx.isSystemAdmin;
+    if (!isAdmin && !ctx.companyId) throw new Error('Unauthorized');
+
+    const scopedWhere = {
+      id: userId,
+      isActive: true,
+      ...(ctx.companyId ? { companyId: ctx.companyId } : {}),
+    };
+
+    const user = await prisma.user.findFirst({
+      where: scopedWhere,
+    });
+    if (!user) throw new Error('User not found');
+
+    if (!user.password || !isBcryptHash(user.password)) {
+      throw new Error('Account configuration error. Contact your administrator.');
+    }
+
+    const valid = bcrypt.compareSync(currentPassword, user.password);
+    if (!valid) throw new Error('Current password is incorrect');
+
+    const hashed = bcrypt.hashSync(newPassword, 10);
+    const updated = await prisma.user.updateMany({
+      where: ctx.companyId ? { id: userId, companyId: ctx.companyId } : { id: userId },
+      data: { password: hashed },
+    });
+    if (updated.count === 0) throw new Error('User not found');
+  },
+
+  async resetPassword(token: string, newPassword: string) {
+    const record = await prisma.passwordReset.findFirst({
+      where: { token },
+      include: { user: true }
+    });
+    if (!record) throw new Error('Invalid or expired reset link');
+    if (record.expiresAt < new Date()) {
+      await prisma.passwordReset.delete({ where: { id: record.id } });
+      throw new Error('Reset link has expired');
+    }
+
+    assertValidSetupPassword(newPassword);
+    const hashed = bcrypt.hashSync(newPassword, 10);
+    const companyId = record.user.companyId;
+    const updated = await prisma.user.updateMany({
+      where: { id: record.userId, companyId },
+      data: { password: hashed }
+    });
+    if (updated.count === 0) throw new Error('Unable to update password');
+    await prisma.passwordReset.delete({ where: { id: record.id } });
+  }
+};

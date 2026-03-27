@@ -1,0 +1,25 @@
+{
+  "name": "fusiku-erp",
+  "version": "1.0.0",
+  "main": "desktop/electron-main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:desktop\"",
+    "dev:desktop": "npm run electron",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev -- --port 5173",
+    "dev:all": "node scripts/dev-all.js",
+    "dev:erp": "npm run dev:all",
+    "electron": "cd desktop && electron .",
+    "build": "npm run build:all",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:desktop": "cd desktop && npm run build",
+    "build:all": "npm run build:frontend && npm run build:backend && npm run build:desktop",
+    "db:setup": "cd backend && npm run db:setup",
+    "db:studio": "cd backend && npm run db:studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.0"
+  }
+}
