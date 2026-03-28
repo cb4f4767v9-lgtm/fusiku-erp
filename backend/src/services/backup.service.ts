@@ -24,14 +24,16 @@ function retentionDays(): number {
 async function pruneOldBackups(dir: string): Promise<void> {
   const days = retentionDays();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  let entries: Awaited<ReturnType<typeof fs.readdir>>;
+  import { Dirent } from 'fs';
+
+let entries: Dirent[];
   try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
+    entries = await fs.readdir(dir, { withFileTypes: true }) as Dirent[];
   } catch {
     return;
   }
   for (const e of entries) {
-    if (!e.isFile() || !e.name.startsWith('fusiku-backup-')) continue;
+    if (!e.isFile() || !(e.name as string).startsWith('fusiku-backup-')) continue;
     const p = path.join(dir, e.name);
     const st = await fs.stat(p);
     if (st.mtimeMs < cutoff) {
