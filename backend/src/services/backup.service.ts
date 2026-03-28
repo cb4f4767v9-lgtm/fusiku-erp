@@ -4,6 +4,7 @@
  */
 
 import { spawn } from 'child_process';
+import type { Dirent } from 'node:fs';
 import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../utils/logger';
@@ -24,16 +25,14 @@ function retentionDays(): number {
 async function pruneOldBackups(dir: string): Promise<void> {
   const days = retentionDays();
   const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  import { Dirent } from 'fs';
-
-let entries: Dirent[];
+  let entries: Dirent[];
   try {
-    entries = await fs.readdir(dir, { withFileTypes: true }) as Dirent[];
+    entries = await fs.readdir(dir, { withFileTypes: true });
   } catch {
     return;
   }
   for (const e of entries) {
-    if (!e.isFile() || !(e.name as string).startsWith('fusiku-backup-')) continue;
+    if (!e.isFile() || !e.name.startsWith('fusiku-backup-')) continue;
     const p = path.join(dir, e.name);
     const st = await fs.stat(p);
     if (st.mtimeMs < cutoff) {
@@ -115,12 +114,10 @@ export async function runDatabaseBackup(): Promise<void> {
       { filepath, bytes: st.size, durationMs, kind: 'postgresql' },
       'Database backup succeeded'
     );
-  } catch (e) {
+  } catch (e: unknown) {
     const durationMs = Date.now() - started;
-    logger.error(
-      { err: (e as Error).message, durationMs },
-      'Database backup failed'
-    );
+    const err = e instanceof Error ? e.message : String(e);
+    logger.error({ err, durationMs }, 'Database backup failed');
     throw e;
   }
 }
