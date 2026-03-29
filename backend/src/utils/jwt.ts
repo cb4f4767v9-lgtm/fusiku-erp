@@ -28,7 +28,7 @@ export function generateToken(payload: TokenPayload): string {
   assertPayloadHasTenantWhenRequired(payload);
   return jwt.sign(payload as object, JWT_SECRET, {
     algorithm: 'HS256',
-    expiresIn: JWT_EXPIRES,
+    expiresIn: JWT_EXPIRES as any,
   });
 }
 
@@ -36,7 +36,7 @@ export function generateRefreshToken(payload: TokenPayload): string {
   assertPayloadHasTenantWhenRequired(payload);
   return jwt.sign(payload as object, JWT_SECRET, {
     algorithm: 'HS256',
-    expiresIn: JWT_REFRESH_EXPIRES,
+    expiresIn: JWT_REFRESH_EXPIRES as any,
   });
 }
 
