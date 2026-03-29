@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt';
-import { isPlatformAdminRole, runWithTenantContext } from '../utils/tenantContext';
+import { isPlatformAdminRole, runTenantContextForHttpRequest } from '../utils/tenantContext';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -28,18 +28,22 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     const isSystemAdmin =
       payload.isSystemAdmin === true ||
       isPlatformAdminRole(payload.roleName);
-    if (!payload?.companyId && !isSystemAdmin) {
+    const raw = payload.companyId;
+    const companyId =
+      typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined;
+    if (!companyId && !isSystemAdmin) {
       return res.status(403).json({ error: 'Tenant context missing (companyId). Please sign in again.' });
     }
-    req.user = payload;
-    return runWithTenantContext(
+    req.user = { ...payload, companyId };
+    runTenantContextForHttpRequest(
       {
         userId: payload.userId,
-        companyId: payload.companyId ?? '',
+        companyId: companyId ?? '',
         branchId: payload.branchId,
         isSystemAdmin,
       },
-      () => next()
+      res,
+      next
     );
   } catch {
     return res.status(401).json({ error: 'Invalid or expired token.' });

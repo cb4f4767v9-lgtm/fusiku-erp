@@ -100,10 +100,17 @@ prisma.$use(async (params, next) => {
     if (ctx?.companyId) {
       args.where = mergeTenantWhere(args.where, ctx.companyId);
       params.args = args;
-    } else if (!whereContainsCompanyId(args.where)) {
-      const err = new Error(TENANT_ISOLATION_ERROR);
-      (err as NodeJS.ErrnoException).code = 'TENANT_ISOLATION';
-      throw err;
+    } else {
+      // ✅ Allow login/register (User model without tenant)
+      if (params.model === 'User') {
+        return next(params);
+      }
+  
+      if (!whereContainsCompanyId(args.where)) {
+        const err = new Error(TENANT_ISOLATION_ERROR);
+        (err as NodeJS.ErrnoException).code = 'TENANT_ISOLATION';
+        throw err;
+      }
     }
   } else {
     const softScopeActions = new Set(['count', 'aggregate', 'groupBy']);

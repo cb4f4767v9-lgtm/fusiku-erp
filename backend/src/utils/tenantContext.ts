@@ -1,3 +1,4 @@
+import type { NextFunction, Response } from 'express';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 export type TenantContext = {
@@ -20,6 +21,39 @@ const storage = new AsyncLocalStorage<TenantContext>();
 
 export function runWithTenantContext<T>(ctx: TenantContext, fn: () => T): T {
   return storage.run(ctx, fn);
+}
+
+/**
+ * Keeps tenant context alive for the whole HTTP request, including async route handlers.
+ * Sync `runWithTenantContext(ctx, () => next())` exits as soon as `next()` returns, so
+ * `await` continuations lose the store → Prisma sees no companyId → tenant isolation error.
+ */
+export function runTenantContextForHttpRequest(
+  ctx: TenantContext,
+  res: Response,
+  next: NextFunction
+): void {
+  void storage.run(ctx, async () => {
+    try {
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        res.once('finish', done);
+        res.once('close', done);
+        try {
+          next();
+        } catch {
+          done();
+        }
+      });
+    } catch {
+      /* avoid unhandled rejection */
+    }
+  });
 }
 
 export function isTenantSystemAdmin(): boolean {

@@ -1,11 +1,62 @@
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { prisma } from '../utils/prisma';
-import { generateToken, generateRefreshToken, verifyToken, decodeToken } from '../utils/jwt';
+import {
+  generateToken,
+  generateRefreshToken,
+  verifyToken,
+  decodeToken,
+  type TokenPayload,
+} from '../utils/jwt';
 import { getTenantContext, isPlatformAdminRole } from '../utils/tenantContext';
 import { activityLogService } from './activityLog.service';
 import { emailService } from './email.service';
 import { assertValidSetupPassword, isBcryptHash, isValidEmailStrict } from '../utils/validation';
+
+/** Include shape for login / refresh — branch carries nested company for resolution. */
+export const authUserForTokenInclude = {
+  role: true,
+  branch: { include: { company: true } },
+  company: true,
+} satisfies Prisma.UserInclude;
+
+export type AuthUserForToken = Prisma.UserGetPayload<{
+  include: typeof authUserForTokenInclude;
+}>;
+
+/** Resolve tenant id from user.companyId OR branch.companyId OR company.id (User relation). */
+export function resolveCompanyIdForToken(user: AuthUserForToken): string | null {
+  if (user.companyId && user.companyId.trim() !== '') return user.companyId;
+  if (user.branch?.companyId) return user.branch.companyId;
+  if (user.company?.id) return user.company.id;
+  return null;
+}
+
+export function buildAuthTokenPayload(user: AuthUserForToken): TokenPayload {
+  const isSystemAdmin = isPlatformAdminRole(user.role.name);
+  const companyId = resolveCompanyIdForToken(user);
+  if (!isSystemAdmin && !companyId) {
+    throw new Error(
+      'Account is missing tenant assignment (companyId). Contact your administrator.'
+    );
+  }
+
+  const payload: TokenPayload = {
+    userId: user.id,
+    email: user.email,
+    roleId: user.roleId,
+    roleName: user.role.name,
+    branchId: user.branchId || undefined,
+    isSystemAdmin,
+  };
+
+  if (companyId) {
+    payload.companyId = companyId;
+  }
+
+  return payload;
+}
 
 export const authService = {
   async login(email: string, password: string) {
@@ -18,7 +69,7 @@ export const authService = {
         isActive: true,
         OR: [{ email: normalized }, { email: raw }],
       },
-      include: { role: true, branch: true, company: true },
+      include: authUserForTokenInclude,
     });
 
     if (!user) throw new Error('Invalid credentials');
@@ -36,16 +87,11 @@ export const authService = {
 
     await activityLogService.log({ userId: user.id, action: 'user_login', entityType: 'User', entityId: user.id });
 
-    const isSystemAdmin = isPlatformAdminRole(user.role.name);
-    const payload = {
-      userId: user.id,
-      email: user.email,
-      roleId: user.roleId,
-      roleName: user.role.name,
-      ...(user.companyId ? { companyId: user.companyId } : {}),
-      branchId: user.branchId || undefined,
-      isSystemAdmin,
-    };
+    if (!user.companyId && !user.branch?.companyId && !user.company?.id) {
+      throw new Error('USER HAS NO COMPANY RELATION IN DATABASE');
+    }
+
+    const payload = buildAuthTokenPayload(user);
     const token = generateToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
@@ -57,7 +103,7 @@ export const authService = {
         email: user.email,
         name: user.name,
         role: user.role.name,
-        companyId: (user as any).companyId,
+        companyId: resolveCompanyIdForToken(user) ?? user.companyId ?? undefined,
         branchId: user.branchId,
         branch: user.branch?.name
       }
@@ -73,22 +119,13 @@ export const authService = {
     }
     if (!payload?.userId) throw new Error('Invalid or expired token');
 
-    const user = await prisma.user.findFirst({
-      where: { id: payload.userId, isActive: true },
-      include: { role: true }
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: authUserForTokenInclude,
     });
-    if (!user) throw new Error('User not found or inactive');
+    if (!user || !user.isActive) throw new Error('User not found or inactive');
 
-    const isSystemAdmin = isPlatformAdminRole(user.role.name);
-    const newPayload = {
-      userId: user.id,
-      email: user.email,
-      roleId: user.roleId,
-      roleName: user.role.name,
-      ...(user.companyId ? { companyId: user.companyId } : {}),
-      branchId: user.branchId || undefined,
-      isSystemAdmin,
-    };
+    const newPayload = buildAuthTokenPayload(user);
     return {
       token: generateToken(newPayload),
       refreshToken: generateRefreshToken(newPayload)
@@ -107,7 +144,7 @@ export const authService = {
     if (!isBcryptHash(hashed)) throw new Error('Password hashing failed');
     const user = await prisma.user.create({
       data: { ...data, email: emailNorm, password: hashed },
-      include: { role: true, branch: true, company: true }
+      include: authUserForTokenInclude,
     });
 
     return {
