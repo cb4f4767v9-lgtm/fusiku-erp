@@ -16,16 +16,12 @@ export interface TokenPayload {
   isSystemAdmin?: boolean;
 }
 
-function assertPayloadHasTenantWhenRequired(payload: TokenPayload): void {
-  if (!payload.isSystemAdmin) {
-    if (!payload.companyId || payload.companyId.trim() === '') {
-      throw new Error('Tenant isolation violation: companyId missing');
-    }
-  }
-}
+/**
+ * Tenant rules for what goes into a JWT live in auth.service `buildAuthTokenPayload` only.
+ * Do not duplicate them here — the same error string was impossible to distinguish from Prisma.
+ */
 
 export function generateToken(payload: TokenPayload): string {
-  assertPayloadHasTenantWhenRequired(payload);
   return jwt.sign(payload as object, JWT_SECRET, {
     algorithm: 'HS256',
     expiresIn: JWT_EXPIRES as any,
@@ -33,7 +29,6 @@ export function generateToken(payload: TokenPayload): string {
 }
 
 export function generateRefreshToken(payload: TokenPayload): string {
-  assertPayloadHasTenantWhenRequired(payload);
   return jwt.sign(payload as object, JWT_SECRET, {
     algorithm: 'HS256',
     expiresIn: JWT_REFRESH_EXPIRES as any,

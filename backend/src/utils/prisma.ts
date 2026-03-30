@@ -13,7 +13,9 @@ declare global {
 
 export const prisma = global.prisma || new PrismaClient();
 
-const TENANT_ISOLATION_ERROR = 'Tenant isolation violation: companyId missing';
+/** Distinct from JWT/auth errors — only thrown by this Prisma $use middleware. */
+const TENANT_ISOLATION_ERROR =
+  'Prisma tenant middleware: scoped query requires companyId (context or where clause)';
 
 // Best-effort tenant isolation: automatically scopes "where" clauses by companyId
 // for multi-record queries. This avoids hand-editing every query while keeping
@@ -112,7 +114,8 @@ prisma.$use(async (params, next) => {
         throw err;
       }
     }
-  } else {
+  }
+   else {
     const softScopeActions = new Set(['count', 'aggregate', 'groupBy']);
     if (softScopeActions.has(action) && ctx?.companyId) {
       args.where = mergeTenantWhere(args.where, ctx.companyId);

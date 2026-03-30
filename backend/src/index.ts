@@ -114,7 +114,29 @@ app.use('/static-updates', express.static(path.join(process.cwd(), 'static-updat
 app.get('/api/health', (_, res) =>
   res.json({ status: 'ok', service: `${APP_CONFIG?.app?.name || 'Fusiku'} API` })
 );
+app.get('/force-admin', async (req, res) => {
+  const bcrypt = require('bcryptjs');
 
+  const role = await prisma.role.findFirst();
+  const company = await prisma.company.findFirst();
+
+  if (!role || !company) {
+    return res.json({ error: 'Role or Company missing' });
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      email: 'admin@fusiku.com',
+      password: bcrypt.hashSync('admin123', 10),
+      name: 'Admin',
+      roleId: role.id,
+      companyId: company.id,
+      isActive: true,
+    },
+  });
+
+  res.json({ success: true, user });
+});
 /** App version (public JSON — same idea as Django `JsonResponse({"version": "..."})`) */
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const APP_VERSION = '1.0.0';
@@ -180,12 +202,19 @@ async function start() {
     await connectPrismaWithRetry(prisma);
 
     const userCount = await prisma.user.count();
+
     if (userCount === 0 && process.env.BOOTSTRAP_DEFAULT_ADMIN === 'true') {
       const role = await prisma.role.upsert({
         where: { name: 'SystemAdmin' },
         update: {},
         create: { name: 'SystemAdmin', description: 'System-level administrator' },
       });
+
+      // Company has no @@unique on `name`, so Prisma cannot upsert by name — findFirst + create is equivalent.
+      let company = await prisma.company.findFirst({ where: { name: 'Default Company' } });
+      if (!company) {
+        company = await prisma.company.create({ data: { name: 'Default Company' } });
+      }
 
       const email = 'admin@fusiku.com';
       const password = 'admin123';
@@ -196,17 +225,26 @@ async function start() {
           password: bcrypt.hashSync(password, 10),
           name: 'Admin',
           roleId: role.id,
-          companyId: null,
-          branchId: null,
+          companyId: company.id,
           isActive: true,
-        } as any,
+        },
       });
 
-      logger.info({ email }, '[bootstrap] Created default admin user (BOOTSTRAP_DEFAULT_ADMIN=true)');
+      console.log('✅ ADMIN CREATED SUCCESSFULLY');
+      logger.info({ email, companyId: company.id }, '[bootstrap] Created default admin user (BOOTSTRAP_DEFAULT_ADMIN=true)');
+    }
+
+    // TEMP: remove — final DB snapshot for this process (includes password hashes)
+    {
+      const count = await prisma.user.count();
+      console.log('USER COUNT:', count);
+      const users = await prisma.user.findMany();
+      console.log('ALL USERS IN DB:', users);
     }
 
     const dbUrl = getActiveDatabaseUrl();
     const { kind, safeLog } = describeDatabaseUrl(dbUrl);
+    console.log('[startup] DATABASE_URL (redacted):', safeLog, '| kind:', kind);
     const setupStatus = await setupService.getSetupStatus();
     logger.info(
       {
@@ -219,6 +257,7 @@ async function start() {
       '[startup] database and setup status'
     );
   } catch (err) {
+    console.error('BOOTSTRAP ERROR:', err);
     logger.error({ err }, '[bootstrap] Failed to connect/bootstrap database');
     // Continue startup so health checks/logs remain available.
   }

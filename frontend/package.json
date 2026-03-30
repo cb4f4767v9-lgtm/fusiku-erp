@@ -9,6 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^5.0.0",
     "axios": "^1.13.6",
     "chart.js": "^4.5.1",
     "i18next": "^25.8.19",
@@ -21,9 +23,5 @@
     "react-hot-toast": "^2.6.0",
     "react-i18next": "^16.5.8",
     "react-router-dom": "^7.13.1"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.0.0",
-    "vite": "^5.0.0"
   }
 }

@@ -10,12 +10,14 @@
     "dev:all": "node scripts/dev-all.js",
     "dev:erp": "npm run dev:all",
     "electron": "cd desktop && electron .",
-    "build": "npm run build:all",
+    "build": "npm run build:web",
+    "build:web": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:desktop": "cd desktop && npm run build",
-    "build:all": "npm run build:frontend && npm run build:backend && npm run build:desktop",
+    "build:all": "npm run build:web && npm run build:desktop",
     "db:setup": "cd backend && npm run db:setup",
+    "db:deploy": "cd backend && npm run db:deploy",
     "db:studio": "cd backend && npm run db:studio"
   },
   "devDependencies": {

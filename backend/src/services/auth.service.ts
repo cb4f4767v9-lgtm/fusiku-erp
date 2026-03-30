@@ -48,7 +48,7 @@ export function buildAuthTokenPayload(user: AuthUserForToken): TokenPayload {
     roleId: user.roleId,
     roleName: user.role.name,
     branchId: user.branchId || undefined,
-    isSystemAdmin,
+    isSystemAdmin: !!isSystemAdmin,
   };
 
   if (companyId) {
@@ -60,6 +60,8 @@ export function buildAuthTokenPayload(user: AuthUserForToken): TokenPayload {
 
 export const authService = {
   async login(email: string, password: string) {
+    console.log('LOGIN EMAIL:', email);
+
     const raw = String(email || '').trim();
     const normalized = raw.toLowerCase();
     if (!isValidEmailStrict(normalized)) throw new Error('Invalid credentials');
@@ -72,6 +74,13 @@ export const authService = {
       include: authUserForTokenInclude,
     });
 
+    console.log('FOUND USER:', user);
+
+    if (user) {
+      console.log('STORED PASSWORD:', user.password);
+      console.log('IS BCRYPT:', user.password?.startsWith('$2'));
+    }
+
     if (!user) throw new Error('Invalid credentials');
 
     if (!user.password || !isBcryptHash(user.password)) {
@@ -83,6 +92,7 @@ export const authService = {
     }
 
     const valid = bcrypt.compareSync(password, user.password);
+    console.log('PASSWORD MATCH:', valid);
     if (!valid) throw new Error('Invalid credentials');
 
     await activityLogService.log({ userId: user.id, action: 'user_login', entityType: 'User', entityId: user.id });
