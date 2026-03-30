@@ -271,8 +271,8 @@ async function start() {
     process.exit(1);
   });
 
-  httpServer.listen(PORT, () => {
-    logger.info(`Fusiku API running on http://localhost:${PORT}`);
+  httpServer.listen(PORT, '0.0.0.0', () => {
+    logger.info(`Fusiku API running on port ${PORT}`);
     logger.info('Think Smart. Play Cool.');
     import('./jobs/worker').then(({ startWorker }) => startWorker());
     import('./jobs/scheduler').then(({ startScheduler }) => startScheduler());
