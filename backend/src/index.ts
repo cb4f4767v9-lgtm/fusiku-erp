@@ -58,7 +58,11 @@ auditSystem();
 
 const app = express();
 const { config: APP_CONFIG, path: APP_CONFIG_PATH } = loadAppConfig();
-const PORT = process.env.PORT || APP_CONFIG?.ports?.backend || 3001;
+const PORT = (() => {
+  const raw = process.env.PORT ?? APP_CONFIG?.ports?.backend ?? 3001;
+  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw), 10);
+  return Number.isFinite(n) ? n : 3001;
+})();
 logger.info({ APP_CONFIG_PATH }, '[config] loaded shared config');
 
 // Security headers
