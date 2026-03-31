@@ -32,4 +32,6 @@
     
     EXPOSE 3001
     
-    CMD ["node", "dist/index.js"]
+    # Railway provides PORT at runtime; the app listens on process.env.PORT.
+    # Use db push (not migrate deploy) because this repo's migration history may include sqlite-era locks.
+    CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
