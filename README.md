@@ -1,5 +1,4 @@
-# FUSIKU ERP
-
+# FUSIKU
 **Think Smart. Play Cool.**
 
 Enterprise ERP system for mobile phone refurbishing and trading companies with multiple branches.

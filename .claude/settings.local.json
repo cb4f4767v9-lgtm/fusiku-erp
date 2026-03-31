@@ -2,7 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "Bash(\"C:/fusiku-erp/dist/FUSIKU ERP Setup 1.0.0.exe\" /S)",
+      "Bash(\"C:/fusiku-erp/dist/FUSIKU Setup 1.0.0.exe\" /S)",
       "Bash(echo \"Exit: $?\")",
       "Bash(find /c/fusiku-erp/backend/src/routes -type f -name *.ts)",
       "Bash(find /c/fusiku-erp/frontend/src/components -type f -name *.tsx -o -name *.ts)",
