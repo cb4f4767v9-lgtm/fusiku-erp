@@ -32,10 +32,7 @@ const { app, FRONTEND_DIST, FRONTEND_INDEX } = buildApplication();
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: getSocketIoCors() });
 
-const PORT = (() => {
-  const n = Number(process.env.PORT);
-  return Number.isFinite(n) && n > 0 ? n : 3001;
-})();
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
 
 const HOST = String(process.env.HOST || '0.0.0.0');
 
