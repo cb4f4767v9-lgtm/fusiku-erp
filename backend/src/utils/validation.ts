@@ -37,3 +37,11 @@ export function assertValidSetupPassword(password: string): void {
   if (password.length < 6) throw new Error('Password must be at least 6 characters');
   if (password.length > 128) throw new Error('Password is too long');
 }
+
+/** Stricter rules for public / SaaS signup paths (B2). */
+export function assertPublicSignupPasswordStrength(password: string): void {
+  assertValidSetupPassword(password);
+  if (password.length < 8) throw new Error('Password must be at least 8 characters');
+  if (!/[A-Za-z]/.test(password)) throw new Error('Password must contain a letter');
+  if (!/[0-9]/.test(password)) throw new Error('Password must contain a number');
+}

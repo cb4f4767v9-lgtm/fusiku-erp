@@ -26,7 +26,34 @@ const PERMISSIONS = [
   { code: 'approve_purchase', name: 'Approve Purchase' },
   { code: 'process_sale', name: 'Process Sale' },
   { code: 'view_reports', name: 'View Reports' },
-  { code: 'manage_users', name: 'Manage Users' }
+  { code: 'manage_users', name: 'Manage Users' },
+  { code: 'dashboard.view', name: 'View dashboard' },
+  { code: 'sales.pos', name: 'Use POS' },
+  { code: 'purchases.view', name: 'View purchases' },
+  { code: 'purchases.create', name: 'Create purchases' },
+  { code: 'suppliers.view', name: 'View suppliers' },
+  { code: 'suppliers.create', name: 'Create or edit suppliers' },
+  { code: 'inventory.view', name: 'View inventory' },
+  { code: 'inventory.create', name: 'Create or adjust inventory' },
+  { code: 'inventory.transfers', name: 'Stock transfers' },
+  { code: 'inventory.history', name: 'Inventory history' },
+  { code: 'operations.repairs', name: 'Repairs' },
+  { code: 'operations.refurbish', name: 'Refurbishing' },
+  { code: 'operations.phoneDatabase', name: 'Phone database' },
+  { code: 'ai.bi', name: 'AI business intelligence' },
+  { code: 'ai.assistant', name: 'AI assistant' },
+  { code: 'finance.expenses', name: 'Expenses' },
+  { code: 'reports.view', name: 'Reports' },
+  { code: 'finance.currency', name: 'Currency & FX' },
+  { code: 'admin.customers', name: 'Customers' },
+  { code: 'branches.manage', name: 'Manage branches' },
+  { code: 'masterData.manage', name: 'Master data' },
+  { code: 'users.manage', name: 'Users & roles' },
+  { code: 'settings.company', name: 'Company settings' },
+  { code: 'settings.app', name: 'App settings' },
+  { code: 'monitoring.view', name: 'Monitoring' },
+  { code: 'logs.activity', name: 'Activity log' },
+  { code: 'logs.system', name: 'System logs' },
 ];
 
 const DEVICE_GRADES = [
@@ -51,12 +78,12 @@ async function main() {
     update: {},
     create: { name: 'admin', description: 'Administrator' }
   });
-  await prisma.role.upsert({
+  const managerRole = await prisma.role.upsert({
     where: { name: 'manager' },
     update: {},
     create: { name: 'manager', description: 'Branch Manager' }
   });
-  await prisma.role.upsert({
+  const staffRole = await prisma.role.upsert({
     where: { name: 'staff' },
     update: {},
     create: { name: 'staff', description: 'Staff' }
@@ -81,6 +108,50 @@ async function main() {
     });
   }
 
+  const managerDeny = new Set(['logs.system', 'users.manage']);
+  for (const perm of permissions) {
+    if (managerDeny.has(perm.code)) continue;
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: managerRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: managerRole.id, permissionId: perm.id },
+    });
+  }
+
+  const staffAllow = new Set([
+    'dashboard.view',
+    'sales.pos',
+    'purchases.view',
+    'purchases.create',
+    'create_purchase',
+    'suppliers.view',
+    'suppliers.create',
+    'inventory.view',
+    'inventory.create',
+    'view_inventory',
+    'create_inventory',
+    'edit_inventory',
+    'inventory.transfers',
+    'inventory.history',
+    'operations.repairs',
+    'operations.refurbish',
+    'operations.phoneDatabase',
+    'finance.expenses',
+    'reports.view',
+    'view_reports',
+    'finance.currency',
+    'ai.bi',
+    'ai.assistant',
+  ]);
+  for (const perm of permissions) {
+    if (!staffAllow.has(perm.code)) continue;
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: staffRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: staffRole.id, permissionId: perm.id },
+    });
+  }
+
   for (const { brand, model, storages, colors } of PHONE_MODELS) {
     let phoneBrand = await prisma.phoneBrand.findUnique({ where: { name: brand } });
     if (!phoneBrand) phoneBrand = await prisma.phoneBrand.create({ data: { name: brand } });
@@ -98,10 +169,28 @@ async function main() {
     }
   }
 
+  const freeFeatures = { multiCurrency: true, aiInsights: true, forexTrading: true, removeBranding: true };
   await prisma.subscriptionPlan.upsert({
     where: { name: 'Free' },
-    update: {},
-    create: { name: 'Free', price: 0, maxUsers: 5, maxBranches: 1 }
+    update: {
+      priceMonthly: 0,
+      maxUsers: 500,
+      maxBranches: 200,
+      features: freeFeatures,
+      active: true,
+      pricingModel: 'unlimited',
+      limitsUnlimited: true,
+    },
+    create: {
+      name: 'Free',
+      priceMonthly: 0,
+      maxUsers: 500,
+      maxBranches: 200,
+      features: freeFeatures,
+      active: true,
+      pricingModel: 'unlimited',
+      limitsUnlimited: true,
+    },
   });
 
   await prisma.exchangeRate.create({

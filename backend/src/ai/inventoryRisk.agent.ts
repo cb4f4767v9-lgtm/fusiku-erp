@@ -18,9 +18,10 @@ export interface InventoryRiskAlert {
 
 export const inventoryRiskAgent = {
   async analyze(params?: { companyId?: string; branchId?: string }): Promise<InventoryRiskAlert[]> {
-    const where: any = { status: 'available' };
+    const companyId = String(params?.companyId || '').trim();
+    if (!companyId) return [];
+    const where: any = { companyId, status: 'available' };
     if (params?.branchId) where.branchId = params.branchId;
-    if (params?.companyId && !params.branchId) where.branch = { companyId: params.companyId };
 
     const inventory = await prisma.inventory.findMany({
       where,
@@ -28,6 +29,7 @@ export const inventoryRiskAgent = {
     });
 
     const salesByModel = await prisma.saleItem.findMany({
+      where: { inventory: { companyId } },
       include: { inventory: true }
     });
     const modelSalesCount: Record<string, number> = {};

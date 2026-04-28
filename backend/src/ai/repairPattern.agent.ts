@@ -24,13 +24,23 @@ export const repairPatternAgent = {
     patterns: RepairPattern[];
     technicianEfficiency: TechnicianEfficiency[];
   }> {
-    const where: any = { status: 'completed' };
-    if (params?.companyId) where.companyId = params.companyId;
+    const companyId = String(params?.companyId || '').trim();
+    if (!companyId) return { patterns: [], technicianEfficiency: [] };
+    const where: any = { companyId, status: 'completed' };
 
     const repairs = await prisma.repair.findMany({
       where,
-      include: { technician: true }
+      select: { faultDescription: true, repairCost: true, imei: true }
     });
+
+    const imeis = Array.from(new Set(repairs.map((r) => String(r.imei || '').trim()).filter(Boolean)));
+    const inventories = imeis.length
+      ? await prisma.inventory.findMany({
+          where: { companyId, imei: { in: imeis } },
+          select: { imei: true, brand: true, model: true }
+        })
+      : [];
+    const inventoryByImei = new Map(inventories.map((i) => [String(i.imei || '').trim(), i]));
 
     const faultGroups: Record<string, { count: number; totalCost: number; models: Set<string> }> = {};
     for (const r of repairs) {
@@ -38,7 +48,7 @@ export const repairPatternAgent = {
       if (!faultGroups[fault]) faultGroups[fault] = { count: 0, totalCost: 0, models: new Set() };
       faultGroups[fault].count++;
       faultGroups[fault].totalCost += Number(r.repairCost);
-      const inv = await prisma.inventory.findFirst({ where: { imei: r.imei } });
+      const inv = inventoryByImei.get(String(r.imei || '').trim());
       if (inv) faultGroups[fault].models.add(`${inv.brand} ${inv.model}`);
     }
 
@@ -53,7 +63,10 @@ export const repairPatternAgent = {
       .slice(0, 15);
 
     const techStats: Record<string, { completed: number; total: number; cost: number }> = {};
-    const allRepairs = await prisma.repair.findMany({ where: { technicianId: { not: null as any } } });
+    const allRepairs = await prisma.repair.findMany({
+      where: { companyId, technicianId: { not: null as any } },
+      select: { technicianId: true, status: true, repairCost: true }
+    });
     for (const r of allRepairs) {
       const id = r.technicianId || 'unknown';
       if (!techStats[id]) techStats[id] = { completed: 0, total: 0, cost: 0 };
@@ -63,7 +76,7 @@ export const repairPatternAgent = {
     }
 
     const users = await prisma.user.findMany({
-      where: { id: { in: Object.keys(techStats) } },
+      where: { companyId, id: { in: Object.keys(techStats) } },
       select: { id: true, name: true }
     });
 

@@ -25,11 +25,21 @@ export const priceOptimizationAgent = {
     branchId?: string;
   }): Promise<PriceOptimizationResult> {
     const factors: string[] = [];
+    const companyId = String(params.companyId || '').trim();
+    if (!companyId) {
+      return {
+        recommendedPrice: Math.round(Number(params.currentPrice) || 0),
+        confidenceScore: 0.1,
+        status: 'optimal',
+        suggestion: 'Tenant context missing',
+        factors: ['Tenant context missing'],
+      };
+    }
     const where: any = {
+      companyId,
       brand: { equals: params.brand },
       model: { equals: params.model }
     };
-    if (params.companyId) where.branch = { companyId: params.companyId };
     if (params.branchId) where.branchId = params.branchId;
 
     const [baseEstimate, salesHistory, inventoryAge] = await Promise.all([
@@ -37,7 +47,8 @@ export const priceOptimizationAgent = {
         brand: params.brand,
         model: params.model,
         storage: params.storage,
-        condition: params.condition
+        condition: params.condition,
+        companyId
       }),
       prisma.saleItem.findMany({
         where: { inventory: where },

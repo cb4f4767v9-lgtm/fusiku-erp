@@ -34,11 +34,10 @@ export const customerService = {
     balanceType?: string;
     paymentMethod?: string;
     moneyStatus?: string;
-    companyId?: string;
     contacts?: { contactType: string; value: string; qrCodeUrl?: string }[];
   }) {
-    const companyId = data.companyId ?? requireTenantCompanyId();
-    const { contacts, ...customerData } = data;
+    const companyId = requireTenantCompanyId();
+    const { contacts, companyId: _ignoredCompany, ...customerData } = data as typeof data & { companyId?: string };
     const customer = await prisma.customer.create({
       data: {
         ...customerData,

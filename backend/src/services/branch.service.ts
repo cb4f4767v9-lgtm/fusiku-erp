@@ -1,10 +1,13 @@
 import { prisma } from '../utils/prisma';
 import { requireTenantCompanyId } from '../utils/tenantContext';
+import { saasPlanService } from './saasPlan.service';
+import { syncCompanyUsage } from './companyUsage.service';
 
 export const branchService = {
-  async getAll(companyId?: string | null) {
+  async getAll(companyId?: string | null, restrictToBranchId?: string | null) {
     const where: any = { isActive: true };
     if (companyId) where.companyId = companyId;
+    if (restrictToBranchId) where.id = restrictToBranchId;
     return prisma.branch.findMany({
       where,
       orderBy: { name: 'asc' },
@@ -12,8 +15,9 @@ export const branchService = {
     });
   },
 
-  async getById(id: string) {
+  async getById(id: string, restrictToBranchId?: string | null) {
     const companyId = requireTenantCompanyId();
+    if (restrictToBranchId && restrictToBranchId !== id) return null;
     return prisma.branch.findFirst({
       where: { id, companyId },
       include: { contacts: true, _count: { select: { inventory: true, users: true } } }
@@ -25,16 +29,19 @@ export const branchService = {
     code?: string;
     adminName?: string;
     currency?: string;
+    marginPercent?: number;
+    defaultLanguage?: string;
     country?: string;
     province?: string;
     city?: string;
     address?: string;
     phone?: string;
-    companyId?: string;
+    logo?: string | null;
     contacts?: { contactType: string; value: string }[];
   }) {
-    const companyId = data.companyId ?? requireTenantCompanyId();
-    const { contacts, ...branchData } = data;
+    const companyId = requireTenantCompanyId();
+    await saasPlanService.assertCanAddBranch(companyId);
+    const { contacts, companyId: _ignoredCompany, ...branchData } = data as typeof data & { companyId?: string };
     const branch = await prisma.branch.create({
       data: { ...branchData, companyId }
     });
@@ -43,10 +50,12 @@ export const branchService = {
         data: contacts.map((c) => ({ branchId: branch.id, contactType: c.contactType, value: c.value }))
       });
     }
-    return prisma.branch.findFirst({
+    const out = await prisma.branch.findFirst({
       where: { id: branch.id, companyId },
       include: { contacts: true }
     })!;
+    void syncCompanyUsage(companyId).catch(() => {});
+    return out;
   },
 
   async update(
@@ -56,11 +65,14 @@ export const branchService = {
       code: string;
       adminName: string;
       currency: string;
+      defaultLanguage: string;
+      marginPercent: number;
       country: string;
       province: string;
       city: string;
       address: string;
       phone: string;
+      logo: string | null;
       isActive: boolean;
       contacts: { contactType: string; value: string }[];
     }>
@@ -82,17 +94,21 @@ export const branchService = {
       data: branchData as any
     });
     if (updated.count === 0) return null;
-    return prisma.branch.findFirst({
+    const next = await prisma.branch.findFirst({
       where: { id, companyId },
       include: { contacts: true }
     });
+    void syncCompanyUsage(companyId).catch(() => {});
+    return next;
   },
 
   async delete(id: string) {
     const companyId = requireTenantCompanyId();
-    return prisma.branch.updateMany({
+    const r = await prisma.branch.updateMany({
       where: { id, companyId },
       data: { isActive: false }
     });
+    void syncCompanyUsage(companyId).catch(() => {});
+    return r;
   }
 };

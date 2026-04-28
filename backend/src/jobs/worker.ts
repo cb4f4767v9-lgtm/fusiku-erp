@@ -6,12 +6,19 @@
 import { processJobs } from './queue';
 import { processJob } from './index';
 import { logger } from '../utils/logger';
+import { startBullWorker } from './bullmq';
 
 const POLL_INTERVAL_MS = 5000;
 let workerInterval: NodeJS.Timeout | null = null;
 
 export function startWorker(): void {
   if (workerInterval) return;
+
+  // BullMQ mode: event-driven worker (no polling).
+  if (String(process.env.USE_BULLMQ || '0') === '1') {
+    startBullWorker(processJob);
+    return;
+  }
 
   workerInterval = setInterval(async () => {
     try {

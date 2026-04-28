@@ -38,9 +38,9 @@ export const imeiLookupService = {
     cacheTimestamps.set(tac, Date.now());
   },
 
-  async lookupFromLocal(tac: string): Promise<ImeiLookupResult | null> {
+  async lookupFromLocal(tac: string, companyId: string): Promise<ImeiLookupResult | null> {
     const inventory = await prisma.inventory.findFirst({
-      where: { imei: { startsWith: tac } },
+      where: { companyId, imei: { startsWith: tac } },
       select: { brand: true, model: true, storage: true, color: true }
     });
     if (inventory) {
@@ -88,8 +88,8 @@ export const imeiLookupService = {
     return null;
   },
 
-  async lookup(imei: string): Promise<ImeiLookupResult | null> {
-    const aiResult = await deviceIdentificationService.identify(imei);
+  async lookup(imei: string, companyId: string): Promise<ImeiLookupResult | null> {
+    const aiResult = await deviceIdentificationService.identify(imei, { companyId });
     if (aiResult) {
       return {
         brand: aiResult.brand,
@@ -105,7 +105,7 @@ export const imeiLookupService = {
     const cached = this.getFromCache(tac);
     if (cached) return cached;
 
-    let result = await this.lookupFromLocal(tac);
+    let result = await this.lookupFromLocal(tac, companyId);
     if (!result) {
       result = await this.lookupFromExternal(tac);
     }

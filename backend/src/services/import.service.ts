@@ -27,6 +27,7 @@ export const importService = {
           continue;
         }
 
+        const purchasePrice = Number(row.purchase_price || row.purchasePrice || 0);
         await prisma.inventory.create({
           data: {
             companyId,
@@ -36,11 +37,17 @@ export const importService = {
             storage: String(row.storage || row.Storage || ''),
             color: String(row.color || row.Color || ''),
             condition: String(row.condition || row.Condition || 'used'),
-            purchasePrice: Number(row.purchase_price || row.purchasePrice || 0),
+            purchasePrice,
+            originalCost: purchasePrice,
+            originalCurrency: 'USD',
+            costUsd: purchasePrice,
+            purchaseCurrency: 'USD',
+            exchangeRateAtPurchase: 1,
+            isLegacyCost: false,
             sellingPrice: Number(row.selling_price || row.sellingPrice || 0),
             branchId,
             status: 'available'
-          }
+          } as any
         });
         results.success++;
       } catch (e: any) {
@@ -132,6 +139,9 @@ export const importService = {
         supplierId,
         branchId,
         totalAmount,
+        // Backward-compatible FX audit fields (import assumed USD unless specified elsewhere)
+        purchaseCurrency: 'USD',
+        exchangeRateAtPurchase: 1,
         status: 'completed',
         purchaseItems: {
           create: items.map(i => ({
@@ -140,7 +150,7 @@ export const importService = {
             quantity: 1
           }))
         }
-      },
+      } as any,
       include: { purchaseItems: true }
     });
 
@@ -155,10 +165,16 @@ export const importService = {
           color: item.color,
           condition: item.condition,
           purchasePrice: item.price,
+          originalCost: item.price,
+          originalCurrency: 'USD',
+          costUsd: item.price,
+          purchaseCurrency: 'USD',
+          exchangeRateAtPurchase: 1,
+          isLegacyCost: false,
           sellingPrice: item.price * 1.2,
           branchId,
           status: 'available'
-        }
+        } as any
       });
     }
 

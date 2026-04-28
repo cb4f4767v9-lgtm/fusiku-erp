@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { logger } from '../utils/logger';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -13,7 +14,7 @@ const transporter = nodemailer.createTransport({
 export const emailService = {
   async send(options: { to: string; subject: string; text?: string; html?: string }) {
     if (!process.env.SMTP_USER) {
-      console.warn('SMTP not configured - email not sent:', options.subject);
+      logger.warn({ subject: options.subject }, '[email] SMTP not configured — message skipped');
       return { messageId: 'skipped' };
     }
     return transporter.sendMail({

@@ -20,13 +20,15 @@ export const deviceIdentificationService = {
     return cleaned.substring(0, 8);
   },
 
-  async identify(imei: string): Promise<DeviceIdentificationResult | null> {
+  async identify(imei: string, opts: { companyId: string }): Promise<DeviceIdentificationResult | null> {
     const tac = this.extractTac(imei);
     if (tac.length < 8) return null;
+    const companyId = String(opts.companyId || '').trim();
+    if (!companyId) return null;
 
     // 1. Check inventory (previous entries)
     const inv = await prisma.inventory.findFirst({
-      where: { imei: { startsWith: tac } },
+      where: { companyId, imei: { startsWith: tac } },
       select: { brand: true, model: true, storage: true, color: true }
     });
     if (inv) {
@@ -51,7 +53,7 @@ export const deviceIdentificationService = {
 
     // 3. Check PhoneVariant (local database)
     const variant = await prisma.phoneVariant.findFirst({
-      where: { inventory: { some: { imei: { startsWith: tac } } } },
+      where: { inventory: { some: { companyId, imei: { startsWith: tac } } } },
       include: { model: { include: { brand: true } } }
     });
     if (!variant) {

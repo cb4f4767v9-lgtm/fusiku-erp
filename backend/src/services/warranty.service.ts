@@ -6,7 +6,7 @@ export const warrantyService = {
     const companyId = requireTenantCompanyId();
 
     const warranty = await prisma.warranty.findFirst({
-      where: { imei, sale: { companyId } },
+      where: { companyId, imei },
       include: { sale: true }
     });
     if (warranty) return warranty;
@@ -33,10 +33,28 @@ export const warrantyService = {
   },
 
   async create(data: { imei: string; warrantyStart: Date; warrantyEnd: Date; saleId?: string; notes?: string }) {
-    return prisma.warranty.upsert({
-      where: { imei: data.imei },
-      update: data,
-      create: data
+    const companyId = requireTenantCompanyId();
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.warranty.findFirst({
+        where: { companyId, imei: data.imei },
+        select: { id: true },
+      });
+      if (existing) {
+        const updated = await tx.warranty.updateMany({
+          where: { id: existing.id, companyId },
+          data: {
+            warrantyStart: data.warrantyStart,
+            warrantyEnd: data.warrantyEnd,
+            saleId: data.saleId,
+            notes: data.notes,
+          },
+        });
+        if (updated.count !== 1) throw new Error('Warranty update failed');
+        return tx.warranty.findFirst({ where: { id: existing.id, companyId } });
+      }
+      return tx.warranty.create({
+        data: { companyId, ...data },
+      });
     });
   }
 };

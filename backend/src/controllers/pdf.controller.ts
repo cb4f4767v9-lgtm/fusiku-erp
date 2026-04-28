@@ -9,7 +9,7 @@ export const pdfController = {
       const companyId = req.user!.companyId;
       const sale = await prisma.sale.findFirst({
         where: { id: req.params.id, companyId },
-        include: { saleItems: true, branch: true }
+        include: { saleItems: true, branch: true, company: true }
       });
       if (!sale) return res.status(404).json({ error: 'Sale not found' });
       const pdf = await pdfService.generateSaleReceipt(sale);

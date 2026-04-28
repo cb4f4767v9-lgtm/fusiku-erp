@@ -129,11 +129,22 @@ async function main() {
   `).catch(() => {});
 
   for (const c of CATEGORIES) {
-    await prisma.masterCategory.upsert({
+    const cat = await prisma.masterCategory.upsert({
       where: { name: c.name },
       update: { nameZh: c.nameZh, nameAr: c.nameAr, nameUr: c.nameUr },
       create: c
     });
+    const translations: Array<{ language: string; translatedName: string }> = [];
+    if (c.nameZh) translations.push({ language: 'zh', translatedName: c.nameZh });
+    if (c.nameAr) translations.push({ language: 'ar', translatedName: c.nameAr });
+    if (c.nameUr) translations.push({ language: 'ur', translatedName: c.nameUr });
+    for (const tr of translations) {
+      await prisma.masterCategoryTranslation.upsert({
+        where: { categoryId_language: { categoryId: cat.id, language: tr.language } },
+        update: { translatedName: tr.translatedName },
+        create: { categoryId: cat.id, language: tr.language, translatedName: tr.translatedName }
+      });
+    }
   }
 
   for (const b of BRANDS) {

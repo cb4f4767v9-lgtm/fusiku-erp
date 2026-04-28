@@ -5,7 +5,9 @@ import { exchangeRateService } from '../services/exchangeRate.service';
 export const exchangeRateController = {
   async getAll(req: AuthRequest, res: Response) {
     try {
-      const rates = await exchangeRateService.getAll();
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
+      const rates = await exchangeRateService.getAll(companyId);
       res.json(rates);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -14,7 +16,9 @@ export const exchangeRateController = {
 
   async getCurrent(req: AuthRequest, res: Response) {
     try {
-      const rate = await exchangeRateService.getCurrent(req.params.currency);
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
+      const rate = await exchangeRateService.getCurrent(companyId, req.params.currency);
       res.json(rate);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -23,6 +27,7 @@ export const exchangeRateController = {
 
   async create(req: AuthRequest, res: Response) {
     try {
+      if (!req.user?.companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
       const rate = await exchangeRateService.create(req.body);
       res.status(201).json(rate);
     } catch (e: any) {

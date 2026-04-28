@@ -5,7 +5,7 @@ import { supplierService } from '../services/supplier.service';
 export const supplierController = {
   async getAll(req: AuthRequest, res: Response) {
     try {
-      const suppliers = await supplierService.getAll(req.user?.companyId);
+      const suppliers = await supplierService.getAll();
       res.json(suppliers);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -24,7 +24,7 @@ export const supplierController = {
 
   async create(req: AuthRequest, res: Response) {
     try {
-      const supplier = await supplierService.create({ ...req.body, companyId: req.body.companyId || req.user?.companyId });
+      const supplier = await supplierService.create({ ...req.body, companyId: req.user?.companyId });
       res.status(201).json(supplier);
     } catch (e: any) {
       res.status(400).json({ error: e.message });

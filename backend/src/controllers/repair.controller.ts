@@ -25,7 +25,7 @@ export const repairController = {
 
   async create(req: AuthRequest, res: Response) {
     try {
-      const repair = await repairService.create({ ...req.body, companyId: req.body.companyId || req.user?.companyId });
+      const repair = await repairService.create({ ...req.body, companyId: req.user?.companyId });
       await activityLogService.log({ userId: req.user?.userId, action: 'repair_create', entityType: 'Repair', entityId: repair.id });
       res.status(201).json(repair);
     } catch (e: any) {

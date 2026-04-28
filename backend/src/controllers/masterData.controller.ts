@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { prisma } from '../utils/prisma';
+import { getRequestBaseLanguage } from '../utils/requestLanguage';
 
 const entities = {
   categories: prisma.masterCategory,
@@ -42,29 +43,66 @@ export const masterDataController = {
 
       const repo = getRepo(entity);
       let data: any[];
+      const lang = getRequestBaseLanguage(req);
+
+      const resolveTranslatedName = (row: any): string => {
+        // Prefer new translation tables.
+        const t = row?.translations?.find?.((x: any) => x?.language === lang)?.translatedName;
+        if (t) return t;
+        // Back-compat for MasterCategory legacy columns until fully migrated.
+        if (lang === 'zh' && row?.nameZh) return row.nameZh;
+        if (lang === 'ar' && row?.nameAr) return row.nameAr;
+        if (lang === 'ur' && row?.nameUr) return row.nameUr;
+        return row?.name || '';
+      };
 
       if (entity === 'phoneModels') {
         const brandId = req.query.brandId as string | undefined;
         data = await repo.findMany({
           where: brandId ? { brandId } : undefined,
-          include: { brand: true },
+          include: {
+            translations: true,
+            brand: { include: { translations: true } }
+          },
           orderBy: [{ brand: { name: 'asc' } }, { name: 'asc' }]
         });
+        data = data.map((r: any) => ({
+          ...r,
+          displayName: resolveTranslatedName(r),
+          brand: r.brand
+            ? { ...r.brand, displayName: resolveTranslatedName(r.brand) }
+            : r.brand
+        }));
       } else if (entity === 'storageSizes') {
         data = await repo.findMany({ orderBy: { sizeGb: 'asc' } });
       } else if (['deviceColors', 'deviceQualities', 'deviceFaults'].includes(entity)) {
         data = await repo.findMany({ orderBy: { name: 'asc' } });
       } else {
-        data = await repo.findMany({ orderBy: { name: 'asc' } });
+        const needsTranslations = entity === 'categories' || entity === 'brands';
+        data = await repo.findMany({
+          ...(needsTranslations ? { include: { translations: true } } : {}),
+          orderBy: { name: 'asc' }
+        });
+        if (needsTranslations) {
+          data = data.map((r: any) => ({ ...r, displayName: resolveTranslatedName(r) }));
+        }
       }
 
       const q = (req.query.q as string)?.toLowerCase();
       if (q) {
         data = data.filter((r: any) => {
           const name = (r.name || '').toLowerCase();
+          const displayName = (r.displayName || '').toLowerCase();
           const label = (r.label || '').toLowerCase();
           const brandName = (r.brand?.name || '').toLowerCase();
-          return name.includes(q) || label.includes(q) || brandName.includes(q);
+          const brandDisplayName = (r.brand?.displayName || '').toLowerCase();
+          return (
+            name.includes(q) ||
+            displayName.includes(q) ||
+            label.includes(q) ||
+            brandName.includes(q) ||
+            brandDisplayName.includes(q)
+          );
         });
       }
 

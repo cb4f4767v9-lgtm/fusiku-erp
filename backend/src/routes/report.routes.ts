@@ -7,6 +7,8 @@ router.get('/dashboard', reportController.getDashboard);
 router.get('/sales', reportController.getSalesReport);
 router.get('/inventory', reportController.getInventoryReport);
 router.get('/profit', reportController.getProfitReport);
+router.get('/expense-detail', reportController.getExpenseReport);
+router.get('/branch-comparison', reportController.getBranchComparison);
 router.get('/technicians', reportController.getTechniciansReport);
 router.get('/inventory-aging', reportController.getInventoryAging);
 router.get('/inventory-financial', reportController.getInventoryFinancial);

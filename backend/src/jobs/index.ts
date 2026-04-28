@@ -5,6 +5,7 @@
 
 import { logger } from '../utils/logger';
 import type { JobName, JobPayload } from './queue';
+import { runWithTenantContext } from '../utils/tenantContext';
 
 export async function processJob(name: JobName, data?: JobPayload): Promise<void> {
   switch (name) {
@@ -36,10 +37,13 @@ export async function processJob(name: JobName, data?: JobPayload): Promise<void
     }
     case 'aiAlertGeneration': {
       const { aiAlertAgent } = await import('../ai/aiAlert.agent');
-      const { prisma } = await import('../utils/prisma');
-      const companies = await prisma.company.findMany({ select: { id: true } });
+      const { prismaPlatform } = await import('../utils/prismaPlatform');
+      const companies = await prismaPlatform.company.findMany({ select: { id: true } });
       for (const c of companies) {
-        await aiAlertAgent.generateAlerts({ companyId: c.id });
+        await runWithTenantContext(
+          { userId: 'job_ai_alerts', companyId: c.id, isSystemAdmin: false },
+          () => aiAlertAgent.generateAlerts({ companyId: c.id })
+        );
       }
       break;
     }

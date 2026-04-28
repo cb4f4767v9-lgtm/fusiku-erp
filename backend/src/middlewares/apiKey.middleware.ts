@@ -4,6 +4,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma';
+import { runTenantContextForHttpRequest } from '../utils/tenantContext';
 
 export interface ApiKeyRequest extends Request {
   apiKey?: { id: string; companyId: string; permissions: string[] };
@@ -34,7 +35,15 @@ export async function apiKeyMiddleware(req: ApiKeyRequest, res: Response, next: 
       }
     })();
     req.apiKey = { id: apiKey.id, companyId: apiKey.companyId, permissions };
-    next();
+    runTenantContextForHttpRequest(
+      {
+        userId: `apikey:${apiKey.id}`,
+        companyId: apiKey.companyId,
+        isSystemAdmin: false,
+      },
+      res,
+      next
+    );
   } catch {
     return res.status(500).json({ error: 'Authentication failed' });
   }

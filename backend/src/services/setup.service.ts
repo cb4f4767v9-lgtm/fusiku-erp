@@ -2,8 +2,8 @@
  * Fusiku - Setup Service
  * First-time installation wizard — transactional, validated, single source of truth for "setup complete".
  */
-import { prisma } from '../utils/prisma';
-import bcrypt from 'bcryptjs';
+import { prismaPlatform as prisma } from '../utils/prismaPlatform';
+import bcrypt from 'bcrypt';
 import { assertValidSetupPassword, isBcryptHash, isValidEmailStrict } from '../utils/validation';
 import { describeDatabaseUrl, getActiveDatabaseUrl } from '../utils/databaseUrl';
 
@@ -36,6 +36,10 @@ export const setupService = {
     const dbUrl = getActiveDatabaseUrl();
     const { kind, safeLog } = describeDatabaseUrl(dbUrl);
 
+    const usersWithBlankCompany = await prisma.user.count({
+      where: { isActive: true, companyId: '' },
+    });
+
     return {
       setupComplete,
       userCount,
@@ -43,6 +47,9 @@ export const setupService = {
       repairReason: needsRepair
         ? 'Users exist but no account has a valid password hash. Database may be in an inconsistent state.'
         : null,
+      tenantIntegrity: {
+        activeUsersWithBlankCompanyId: usersWithBlankCompany,
+      },
       database: {
         kind,
         activeUrl: safeLog,
@@ -117,14 +124,16 @@ export const setupService = {
         },
       });
 
-      await tx.companySettings.create({
+      // Prisma client may be behind schema during development; keep this write tolerant.
+      await (tx.companySettings as any).create({
         data: {
           companyId: company.id,
-          currency,
+          baseCurrency: currency,
+          currency, // legacy alias
           timezone: 'UTC',
           invoicePrefix: 'INV',
-        },
-      });
+        } as any,
+      } as any);
 
       await tx.subscription.create({
         data: {
@@ -133,6 +142,7 @@ export const setupService = {
           startDate: new Date(),
           endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
           status: 'active',
+          trialEndsAt: null,
         },
       });
 

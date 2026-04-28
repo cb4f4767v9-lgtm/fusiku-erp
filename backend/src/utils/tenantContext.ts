@@ -3,75 +3,98 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 export type TenantContext = {
   userId: string;
-  /** Set for normal tenant users; may be empty when platform admin has no tenant row. */
-  companyId: string;
+  /**
+   * Optional for platform/system admins (who may operate without an implicit tenant),
+   * required for all non-admin requests (enforced by middleware/runtime guards).
+   */
+  companyId?: string;
   branchId?: string;
-  /** Platform super-admin: Prisma tenant middleware does not enforce companyId. */
+  branchRole?: 'SUPER_ADMIN' | 'BRANCH_ADMIN' | 'BRANCH_USER';
   isSystemAdmin?: boolean;
 };
 
-/** Canonical role names for platform-level (cross-tenant) access. */
-export const PLATFORM_ADMIN_ROLE_NAMES = new Set(['SYSTEM_ADMIN', 'SystemAdmin']);
+export const PLATFORM_ADMIN_ROLE_NAMES = new Set(['SYSTEM_ADMIN']);
 
 export function isPlatformAdminRole(roleName?: string | null): boolean {
-  return !!roleName && PLATFORM_ADMIN_ROLE_NAMES.has(roleName);
+  return !!roleName && PLATFORM_ADMIN_ROLE_NAMES.has(roleName.toUpperCase());
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();
+
+// ================= CORE CONTEXT =================
 
 export function runWithTenantContext<T>(ctx: TenantContext, fn: () => T): T {
   return storage.run(ctx, fn);
 }
 
-/**
- * Keeps tenant context alive for the whole HTTP request, including async route handlers.
- * Sync `runWithTenantContext(ctx, () => next())` exits as soon as `next()` returns, so
- * `await` continuations lose the store → Prisma sees no companyId → tenant isolation error.
- */
 export function runTenantContextForHttpRequest(
   ctx: TenantContext,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void {
-  void storage.run(ctx, async () => {
-    try {
-      await new Promise<void>((resolve) => {
-        let settled = false;
-        const done = () => {
-          if (settled) return;
-          settled = true;
-          resolve();
-        };
-        res.once('finish', done);
-        res.once('close', done);
-        try {
-          next();
-        } catch {
-          done();
-        }
-      });
-    } catch {
-      /* avoid unhandled rejection */
-    }
+  // Clean + safe execution (no hanging promise, no silent failure)
+  storage.run(ctx, () => {
+    next();
   });
-}
-
-export function isTenantSystemAdmin(): boolean {
-  return !!getTenantContext()?.isSystemAdmin;
 }
 
 export function getTenantContext(): TenantContext | undefined {
   return storage.getStore();
 }
 
-/** Use in authenticated request handlers / services that run under authMiddleware. */
-export function requireTenantCompanyId(): string {
-  const c = getTenantContext()?.companyId;
-  if (!c) {
-    const err = new Error('Tenant context required');
-    (err as any).statusCode = 403;
-    throw err;
+export function requireTenantContext(): TenantContext {
+  const ctx = getTenantContext();
+
+  if (!ctx) {
+    throw new Error('FATAL: Tenant context missing (request not wrapped)');
   }
-  return c;
+
+  return ctx;
 }
 
+// ================= HELPERS =================
+
+export function requireTenantCompanyId(): string {
+  const ctx = requireTenantContext();
+
+  if (ctx.isSystemAdmin) {
+    throw new Error('System admin must specify tenant explicitly');
+  }
+
+  if (!ctx.companyId) {
+    throw new Error('Tenant companyId missing');
+  }
+
+  return ctx.companyId;
+}
+
+export function requireBranchId(): string {
+  const ctx = requireTenantContext();
+
+  if (!ctx.branchId) {
+    throw new Error('Branch context required');
+  }
+
+  return ctx.branchId;
+}
+
+export function getSafeCompanyId(): string | null {
+  const ctx = getTenantContext();
+
+  if (!ctx) return null;
+  if (ctx.isSystemAdmin) return null;
+
+  if (!ctx.companyId) {
+    throw new Error('Missing tenant companyId');
+  }
+
+  return ctx.companyId;
+}
+
+export function isTenantSystemAdmin(): boolean {
+  return !!getTenantContext()?.isSystemAdmin;
+}
+
+export function debugTenantContext() {
+  return getTenantContext();
+}

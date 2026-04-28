@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { userController } from '../controllers/user.controller';
+import { requirePermission } from '../middlewares/permission.middleware';
 
 const router = Router();
+
+router.use(requirePermission('manage_users'));
 
 router.get('/', userController.getAll);
 router.get('/:id', userController.getById);

@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { prisma } from '../utils/prisma';
+import { isJwtSecretStrong } from '../utils/productionEnv';
 
 const startTime = Date.now();
 
@@ -35,7 +36,7 @@ export const systemCheckService = {
 
     // Environment
     const hasDb = !!process.env.DATABASE_URL;
-    const hasJwt = !!process.env.JWT_SECRET && process.env.JWT_SECRET !== 'fusiku-erp-secret-key-change-in-production';
+    const hasJwt = isJwtSecretStrong(process.env.JWT_SECRET);
     checks.environment = {
       status: hasDb && hasJwt ? 'ok' : 'warning',
       message: !hasDb ? 'DATABASE_URL not set' : !hasJwt ? 'JWT_SECRET should be changed in production' : undefined

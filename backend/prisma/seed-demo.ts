@@ -70,6 +70,7 @@ async function main() {
       where: { imei: sampleImeis[i] },
       update: {},
       create: {
+        companyId: company.id,
         imei: sampleImeis[i],
         brand: 'Apple',
         model: 'iPhone 14',
@@ -77,6 +78,12 @@ async function main() {
         color: 'Blue',
         condition: 'refurbished',
         purchasePrice: 400 + i * 30,
+        originalCost: 400 + i * 30,
+        originalCurrency: 'USD',
+        costUsd: 400 + i * 30,
+        purchaseCurrency: 'USD',
+        exchangeRateAtPurchase: 1,
+        isLegacyCost: false,
         sellingPrice: 500 + i * 40,
         branchId: branch.id,
         status: 'available'
@@ -99,6 +106,37 @@ async function main() {
     update: { value: 'true' },
     create: { key: 'setup_completed', value: 'true' }
   }).catch(() => {});
+
+  // Seed centralized currencies for demo company (Head Office-controlled).
+  const required = ['USD', 'CNY', 'PKR', 'AED', 'EUR', 'GBP', 'SAR', 'HKD', 'INR', 'TRY'] as const;
+  const baseline: Record<string, number> = {
+    USD: 1,
+    AED: 3.67,
+    CNY: 7.2,
+    PKR: 280,
+    EUR: 0.92,
+    GBP: 0.79,
+    SAR: 3.75,
+    HKD: 7.82,
+    INR: 83,
+    TRY: 32,
+  };
+  for (const code of required) {
+    const baseRate = baseline[code] ?? (code === 'USD' ? 1 : 0);
+    await prisma.currency.upsert({
+      where: { companyId_code: { companyId: company.id, code } },
+      update: {},
+      create: {
+        companyId: company.id,
+        code,
+        baseRate,
+        marginPercent: 0,
+        isAuto: true,
+        finalRate: baseRate,
+        lastUpdatedAt: new Date(),
+      },
+    }).catch(() => {});
+  }
 
   console.log('Demo seed completed. Login: admin@fusiku.com / 12345678');
 }

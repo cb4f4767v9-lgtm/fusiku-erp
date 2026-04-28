@@ -24,7 +24,7 @@ export const customerController = {
 
   async create(req: AuthRequest, res: Response) {
     try {
-      const customer = await customerService.create({ ...req.body, companyId: req.body.companyId || req.user?.companyId });
+      const customer = await customerService.create({ ...req.body, companyId: req.user?.companyId });
       res.status(201).json(customer);
     } catch (e: any) {
       res.status(400).json({ error: e.message });

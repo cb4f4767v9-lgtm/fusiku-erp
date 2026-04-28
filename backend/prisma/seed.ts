@@ -39,6 +39,7 @@ const PHONE_MODELS = [
 ];
 
 const PERMISSIONS = [
+  // Legacy codes (kept for backward compatibility with older roles / integrations)
   { code: 'create_inventory', name: 'Create Inventory' },
   { code: 'edit_inventory', name: 'Edit Inventory' },
   { code: 'delete_inventory', name: 'Delete Inventory' },
@@ -47,7 +48,37 @@ const PERMISSIONS = [
   { code: 'approve_purchase', name: 'Approve Purchase' },
   { code: 'process_sale', name: 'Process Sale' },
   { code: 'view_reports', name: 'View Reports' },
-  { code: 'manage_users', name: 'Manage Users' }
+  { code: 'manage_users', name: 'Manage Users' },
+  { code: 'manage_currency', name: 'Manage Currency (Head Office)' },
+  { code: 'manage_investors', name: 'Manage Investors & Capital' },
+  // Canonical module keys (UI + middleware)
+  { code: 'dashboard.view', name: 'View dashboard' },
+  { code: 'sales.pos', name: 'Use POS' },
+  { code: 'purchases.view', name: 'View purchases' },
+  { code: 'purchases.create', name: 'Create purchases' },
+  { code: 'suppliers.view', name: 'View suppliers' },
+  { code: 'suppliers.create', name: 'Create or edit suppliers' },
+  { code: 'inventory.view', name: 'View inventory' },
+  { code: 'inventory.create', name: 'Create or adjust inventory' },
+  { code: 'inventory.transfers', name: 'Stock transfers' },
+  { code: 'inventory.history', name: 'Inventory history' },
+  { code: 'operations.repairs', name: 'Repairs' },
+  { code: 'operations.refurbish', name: 'Refurbishing' },
+  { code: 'operations.phoneDatabase', name: 'Phone database' },
+  { code: 'ai.bi', name: 'AI business intelligence' },
+  { code: 'ai.assistant', name: 'AI assistant' },
+  { code: 'finance.expenses', name: 'Expenses' },
+  { code: 'reports.view', name: 'Reports' },
+  { code: 'finance.currency', name: 'Currency & FX' },
+  { code: 'admin.customers', name: 'Customers' },
+  { code: 'branches.manage', name: 'Manage branches' },
+  { code: 'masterData.manage', name: 'Master data' },
+  { code: 'users.manage', name: 'Users & roles' },
+  { code: 'settings.company', name: 'Company settings' },
+  { code: 'settings.app', name: 'App settings' },
+  { code: 'monitoring.view', name: 'Monitoring' },
+  { code: 'logs.activity', name: 'Activity log' },
+  { code: 'logs.system', name: 'System logs' },
 ];
 
 const DEVICE_GRADES = [
@@ -112,6 +143,60 @@ async function main() {
     });
   }
 
+  const managerCodes = new Set(
+    permissions.map((p) => p.code).filter((c) => !['logs.system', 'users.manage'].includes(c))
+  );
+  for (const perm of permissions) {
+    if (!managerCodes.has(perm.code)) continue;
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: managerRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: managerRole.id, permissionId: perm.id },
+    });
+  }
+
+  const staffCodes = new Set([
+    'dashboard.view',
+    'sales.pos',
+    'purchases.view',
+    'purchases.create',
+    'create_purchase',
+    'suppliers.view',
+    'suppliers.create',
+    'inventory.view',
+    'inventory.create',
+    'view_inventory',
+    'create_inventory',
+    'edit_inventory',
+    'inventory.transfers',
+    'inventory.history',
+    'operations.repairs',
+    'operations.refurbish',
+    'operations.phoneDatabase',
+    'finance.expenses',
+    'reports.view',
+    'view_reports',
+    'finance.currency',
+    'ai.bi',
+    'ai.assistant',
+  ]);
+  for (const perm of permissions) {
+    if (!staffCodes.has(perm.code)) continue;
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: staffRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: staffRole.id, permissionId: perm.id },
+    });
+  }
+
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: systemAdminRole.id, permissionId: perm.id } },
+      update: {},
+      create: { roleId: systemAdminRole.id, permissionId: perm.id },
+    });
+  }
+
   // Phase 8: Default seed creates base data only. Use /setup wizard or npm run seed:demo for company/admin.
   // Create phone database (PhoneBrand, PhoneModel, PhoneVariant)
   const brandMap: Record<string, string> = {};
@@ -145,11 +230,136 @@ async function main() {
     }
   }
 
-  // Create default subscription plan
+  const freeFeatures = {
+    multiCurrency: true,
+    aiInsights: true,
+    forexTrading: true,
+    removeBranding: true,
+  };
+  const starterFeatures = {
+    multiCurrency: true,
+    aiInsights: false,
+    forexTrading: false,
+    removeBranding: false,
+  };
+  const businessFeatures = {
+    multiCurrency: true,
+    aiInsights: true,
+    forexTrading: true,
+    removeBranding: false,
+  };
+  const enterpriseFeatures = {
+    multiCurrency: true,
+    aiInsights: true,
+    forexTrading: true,
+    removeBranding: true,
+  };
+
+  // SaaS Phase 4 — catalog + internal unlimited tier for setup / legacy tenants
   await prisma.subscriptionPlan.upsert({
     where: { name: 'Free' },
-    update: {},
-    create: { name: 'Free', price: 0, maxUsers: 5, maxBranches: 1 }
+    update: {
+      priceMonthly: 0,
+      maxUsers: 500,
+      maxBranches: 200,
+      features: freeFeatures,
+      active: true,
+      pricingModel: 'unlimited',
+      limitsUnlimited: true,
+      pricePerBranchMonthly: null,
+      modulePrices: { aiInsights: 0, forexTrading: 0 },
+    },
+    create: {
+      name: 'Free',
+      priceMonthly: 0,
+      maxUsers: 500,
+      maxBranches: 200,
+      features: freeFeatures,
+      active: true,
+      pricingModel: 'unlimited',
+      limitsUnlimited: true,
+      modulePrices: { aiInsights: 0, forexTrading: 0 },
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Starter' },
+    update: {
+      priceMonthly: 29,
+      maxUsers: 5,
+      maxBranches: 2,
+      features: starterFeatures,
+      active: true,
+      pricingModel: 'flat',
+      limitsUnlimited: false,
+      pricePerBranchMonthly: null,
+      modulePrices: { aiInsights: 15, forexTrading: 10 },
+    },
+    create: {
+      name: 'Starter',
+      priceMonthly: 29,
+      maxUsers: 5,
+      maxBranches: 2,
+      features: starterFeatures,
+      active: true,
+      pricingModel: 'flat',
+      limitsUnlimited: false,
+      modulePrices: { aiInsights: 15, forexTrading: 10 },
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Business' },
+    update: {
+      priceMonthly: 39,
+      maxUsers: 25,
+      maxBranches: 10,
+      features: businessFeatures,
+      active: true,
+      pricingModel: 'per_module',
+      limitsUnlimited: false,
+      pricePerBranchMonthly: null,
+      modulePrices: { aiInsights: 25, forexTrading: 15 },
+    },
+    create: {
+      name: 'Business',
+      priceMonthly: 39,
+      maxUsers: 25,
+      maxBranches: 10,
+      features: businessFeatures,
+      active: true,
+      pricingModel: 'per_module',
+      limitsUnlimited: false,
+      pricePerBranchMonthly: null,
+      modulePrices: { aiInsights: 25, forexTrading: 15 },
+    },
+  });
+
+  await prisma.subscriptionPlan.upsert({
+    where: { name: 'Enterprise' },
+    update: {
+      priceMonthly: 199,
+      maxUsers: 500,
+      maxBranches: 200,
+      features: enterpriseFeatures,
+      active: true,
+      pricingModel: 'unlimited',
+      limitsUnlimited: true,
+      pricePerBranchMonthly: null,
+      modulePrices: { aiInsights: 0, forexTrading: 0 },
+    },
+    create: {
+      name: 'Enterprise',
+      priceMonthly: 199,
+      maxUsers: 500,
+      maxBranches: 200,
+      features: enterpriseFeatures,
+      active: true,
+      pricingModel: 'unlimited',
+      limitsUnlimited: true,
+      pricePerBranchMonthly: null,
+      modulePrices: { aiInsights: 0, forexTrading: 0 },
+    },
   });
 
   // Create exchange rate
@@ -161,6 +371,48 @@ async function main() {
       effectiveTo: null
     }
   }).catch(() => {});
+
+  // Seed a baseline company + centralized currency table baseline.
+  // Note: Currency rows are per-company (tenant). Setup wizard or seed:demo may create additional companies.
+  let company = await prisma.company.findFirst({ where: { name: 'Default Company' } });
+  if (!company) {
+    company = await prisma.company.findFirst({ where: { name: 'Workspace' } });
+  }
+  if (!company) {
+    company = await prisma.company.create({ data: { name: 'Workspace' } });
+  } else if (company.name === 'Default Company') {
+    company = await prisma.company.update({ where: { id: company.id }, data: { name: 'Workspace' } });
+  }
+
+  const baseline = [
+    { code: 'USD', baseRate: 1, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 1 },
+    { code: 'CNY', baseRate: 7.2, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 7.2 },
+    { code: 'PKR', baseRate: 280, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 280 },
+    { code: 'AED', baseRate: 3.67, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 3.67 },
+    { code: 'EUR', baseRate: 0.92, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 0.92 },
+    { code: 'GBP', baseRate: 0.79, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 0.79 },
+    { code: 'SAR', baseRate: 3.75, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 3.75 },
+    { code: 'HKD', baseRate: 7.82, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 7.82 },
+    { code: 'INR', baseRate: 83, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 83 },
+    { code: 'TRY', baseRate: 32, marginPercent: 0, isAuto: true, manualRate: null, finalRate: 32 },
+  ] as const;
+
+  for (const row of baseline) {
+    await prisma.currency.upsert({
+      where: { companyId_code: { companyId: company.id, code: row.code } },
+      update: {},
+      create: {
+        companyId: company.id,
+        code: row.code,
+        baseRate: row.baseRate,
+        marginPercent: row.marginPercent,
+        isAuto: row.isAuto,
+        manualRate: row.manualRate === null ? undefined : row.manualRate,
+        finalRate: row.finalRate,
+        lastUpdatedAt: new Date(),
+      }
+    });
+  }
 
   console.log('Seed completed. Phone models:', PHONE_MODELS.length);
   console.log('Open /setup to configure your company, or run: npm run seed:demo for demo data.');

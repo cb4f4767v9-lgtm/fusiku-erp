@@ -1,11 +1,22 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../utils/prisma';
 import { AuthRequest } from './auth.middleware';
+import { isPlatformAdminRole } from '../utils/tenantContext';
 
 export function requirePermission(...permissionCodes: string[]) {
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+
+    if (req.user.branchRole === 'SUPER_ADMIN') {
+      return next();
+    }
+
+    const path = `${req.baseUrl || ''}${req.path || ''}`.replace(/\/+/g, '/');
+    const isPlatformRoute = /\/v1\/admin(\/|$)/.test(path) || /^\/api\/v1\/admin(\/|$)/.test(path);
+    if (isPlatformRoute && (req.user.isSystemAdmin || isPlatformAdminRole(req.user.roleName))) {
+      return next();
     }
 
     try {

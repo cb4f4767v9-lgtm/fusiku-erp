@@ -17,10 +17,21 @@ export const activityLogService = {
     });
   },
 
-  async getAll(filters?: { userId?: string; entityType?: string; limit?: number }) {
-    const where: any = {};
+  async getAll(filters?: {
+    userId?: string;
+    entityType?: string;
+    limit?: number;
+    companyId?: string;
+    isSystemAdmin?: boolean;
+  }) {
+    const where: Record<string, unknown> = {};
     if (filters?.userId) where.userId = filters.userId;
     if (filters?.entityType) where.entityType = filters.entityType;
+    if (filters?.companyId) {
+      where.user = { companyId: filters.companyId };
+    } else {
+      return [];
+    }
 
     return prisma.activityLog.findMany({
       where,

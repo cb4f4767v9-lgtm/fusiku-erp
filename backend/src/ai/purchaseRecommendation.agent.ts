@@ -18,8 +18,9 @@ export interface PurchaseRecommendation {
 export const purchaseRecommendationAgent = {
   async getRecommendations(params?: { companyId?: string; limit?: number }): Promise<PurchaseRecommendation[]> {
     const limit = params?.limit ?? 10;
-    const where: any = {};
-    if (params?.companyId) where.companyId = params.companyId;
+    const companyId = String(params?.companyId || '').trim();
+    if (!companyId) return [];
+    const where: any = { companyId };
 
     const sales = await prisma.sale.findMany({
       where,
@@ -37,10 +38,10 @@ export const purchaseRecommendationAgent = {
       }
     }
 
-    const repairs = await prisma.repair.findMany({ where: { status: 'completed' } });
+    const repairs = await prisma.repair.findMany({ where: { companyId, status: 'completed' } });
     const repairByModel: Record<string, number[]> = {};
     for (const r of repairs) {
-      const inv = await prisma.inventory.findFirst({ where: { imei: r.imei } });
+      const inv = await prisma.inventory.findFirst({ where: { companyId, imei: r.imei } });
       const key = inv ? `${inv.brand}|${inv.model}|${inv.storage || ''}` : 'unknown';
       if (!repairByModel[key]) repairByModel[key] = [];
       repairByModel[key].push(Number(r.repairCost));

@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { Readable } from 'stream';
+import { saleDocumentLogoPath } from '../utils/uploadPath';
 
 export const pdfService = {
   async generateSaleReceipt(sale: any): Promise<Buffer> {
@@ -10,9 +10,24 @@ export const pdfService = {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
     });
 
-    doc.fontSize(24).text('FUSIKU', { align: 'center' });
-    doc.fontSize(10).text('Think Smart. Play Cool.', { align: 'center' });
-    doc.moveDown();
+    const logoPath = saleDocumentLogoPath(sale);
+    const titleName = (sale?.company?.name || sale?.branch?.name || 'FUSIKU') as string;
+    if (logoPath) {
+      try {
+        const w = 120;
+        const x = (doc.page.width - w) / 2;
+        doc.image(logoPath, x, doc.y, { width: w });
+        doc.moveDown(3.2);
+      } catch {
+        doc.fontSize(22).text(titleName, { align: 'center' });
+        doc.moveDown(0.3);
+      }
+    } else {
+      doc.fontSize(22).text(titleName, { align: 'center' });
+      doc.moveDown(0.3);
+    }
+    doc.fillColor('black');
+    doc.moveDown(0.5);
     doc.fontSize(14).text('SALE RECEIPT', { align: 'center' });
     doc.moveDown();
     doc.fontSize(10).text(`Receipt #${sale?.id?.slice(-8) || ''}`);
@@ -26,6 +41,8 @@ export const pdfService = {
     doc.moveDown();
     doc.fontSize(12).text(`Total: $${sale ? Number(sale.totalAmount).toFixed(2) : '0.00'}`);
     doc.text(`Profit: $${sale ? Number(sale.profit).toFixed(2) : '0.00'}`);
+    doc.moveDown(1.2);
+    doc.fontSize(8).fillColor('#666').text('Powered by Fusiku', { align: 'center' });
     doc.end();
     return buffer;
   },

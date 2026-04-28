@@ -1,22 +1,31 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma';
+import { requireTenantCompanyId } from '../utils/tenantContext';
+import { enforceTenant } from '../utils/tenantQuery';
 
 type MovementType = 'purchase' | 'sale' | 'repair' | 'refurbish' | 'transfer' | 'adjustment';
 
+type DbClient = typeof prisma | Prisma.TransactionClient;
+
 export const stockMovementService = {
-  async create(data: {
-    inventoryId: string;
-    movementType: MovementType;
-    branchId: string;
-    userId?: string;
-    referenceId?: string;
-    quantity?: number;
-  }) {
-    const inv = await prisma.inventory.findFirst({
-      where: { id: data.inventoryId },
+  async create(
+    data: {
+      inventoryId: string;
+      movementType: MovementType;
+      branchId: string;
+      userId?: string;
+      referenceId?: string;
+      quantity?: number;
+    },
+    db: DbClient = prisma
+  ) {
+    const companyId = requireTenantCompanyId();
+    const inv = await db.inventory.findFirst({
+      where: enforceTenant({ id: data.inventoryId }, companyId),
       select: { companyId: true }
     });
     if (!inv) throw new Error('Inventory not found');
-    return prisma.stockMovement.create({
+    return db.stockMovement.create({
       data: {
         companyId: inv.companyId,
         movementType: data.movementType,

@@ -14,14 +14,23 @@ export interface InventoryForecast {
 
 export const inventoryForecastAgent = {
   async forecast(params?: { companyId?: string; branchId?: string }): Promise<InventoryForecast> {
-    const where: any = { status: 'available' };
+    const companyId = String(params?.companyId || '').trim();
+    if (!companyId) {
+      return {
+        currentValue: 0,
+        expectedFutureValue: 0,
+        expectedChangeDays: 0,
+        recommendedDiscountTiming: 'Tenant context missing',
+        trend: 'stable',
+      };
+    }
+    const where: any = { companyId, status: 'available' };
     if (params?.branchId) where.branchId = params.branchId;
-    if (params?.companyId && !params.branchId) where.branch = { companyId: params.companyId };
 
     const [inventory, sales] = await Promise.all([
       prisma.inventory.findMany({ where, select: { sellingPrice: true, purchasePrice: true, createdAt: true } }),
       prisma.sale.findMany({
-        where: params?.companyId ? { companyId: params.companyId } : {},
+        where: { companyId },
         include: { saleItems: { include: { inventory: true } } }
       })
     ]);

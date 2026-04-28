@@ -28,12 +28,13 @@ const FAULT_KEYWORDS: Record<string, { causes: string[]; steps: string[]; costRa
 };
 
 export const repairAssistantService = {
-  async getSuggestions(deviceModel: string, faultDescription: string): Promise<RepairSuggestion> {
+  async getSuggestions(deviceModel: string, faultDescription: string, opts: { companyId: string }): Promise<RepairSuggestion> {
     const fault = faultDescription.toLowerCase();
     const causes: string[] = [];
     const steps: string[] = [];
     let costMin = 20;
     let costMax = 150;
+    const companyId = String(opts.companyId || '').trim();
 
     for (const [keyword, data] of Object.entries(FAULT_KEYWORDS)) {
       if (fault.includes(keyword)) {
@@ -54,6 +55,7 @@ export const repairAssistantService = {
 
     const similarRepairs = await prisma.repair.count({
       where: {
+        companyId,
         faultDescription: { contains: fault.split(' ')[0] || fault },
         status: 'completed'
       }
@@ -61,6 +63,7 @@ export const repairAssistantService = {
 
     const avgCost = await prisma.repair.aggregate({
       where: {
+        companyId,
         faultDescription: { contains: fault.split(' ')[0] || fault },
         status: 'completed'
       },

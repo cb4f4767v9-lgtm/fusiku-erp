@@ -2,22 +2,28 @@ import { Response } from 'express';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { reportService } from '../services/report.service';
 import { prisma } from '../utils/prisma';
+import { logger } from '../utils/logger';
+import { assertBranchQueryAllowed } from '../utils/branchAccess';
 
 export const reportController = {
   async getDashboard(req: AuthRequest, res: Response) {
     try {
-      const branchId = (req.query.branchId as string) || req.user?.branchId;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
+      logger.info({ companyId: req.user?.companyId ?? null, branchId: branchId ?? null }, '[report] GET /reports/dashboard start');
 
       const dashboard = await reportService.getDashboard(
         branchId,
         req.user?.companyId
       );
 
+      logger.info({ companyId: req.user?.companyId ?? null }, '[report] GET /reports/dashboard done');
       res.json(dashboard);
 
     } catch (e: any) {
-
-      console.error("Dashboard error:", e);
+      if (e.statusCode === 403) {
+        return res.status(403).json({ error: e.message });
+      }
+      logger.error({ err: e, stack: e?.stack }, '[report] dashboard error — returning empty fallback');
 
       // SAFE FALLBACK so frontend never breaks
       res.json({
@@ -29,13 +35,19 @@ export const reportController = {
         recentSales: [],
         totalInventoryValue: 0,
         dailySales: 0,
+        todayProfit: 0,
         monthlyProfit: 0,
         devicesUnderRepair: 0,
         lowStockAlerts: 0,
         repairsInProgress: 0,
         refurbishingQueue: 0,
         totalDevicesInStock: 0,
-        todaySales: 0
+        todaySales: 0,
+        branchProfitRows: [],
+        companyNetProfitMonth: 0,
+        monthlyOperatingExpenses: 0,
+        dataQuality: { hasLegacyCost: false, hasMissingFx: false },
+        reportingNotice: null
       });
 
     }
@@ -43,8 +55,9 @@ export const reportController = {
 
   async getSalesReport(req: AuthRequest, res: Response) {
     try {
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const filters = {
-        branchId: req.query.branchId as string,
+        branchId,
         companyId: req.user?.companyId,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
@@ -54,25 +67,29 @@ export const reportController = {
       const sales = await reportService.getSalesReport(filters);
       res.json(sales);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
 
   async getInventoryReport(req: AuthRequest, res: Response) {
     try {
-      const branchId = req.query.branchId as string;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const filters = { brand: req.query.brand as string, model: req.query.model as string };
       const report = await reportService.getInventoryReport(branchId, filters);
       res.json(report);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
 
   async getProfitReport(req: AuthRequest, res: Response) {
     try {
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const filters = {
-        branchId: req.query.branchId as string,
+        branchId,
+        companyId: req.user?.companyId,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
         brand: req.query.brand as string
@@ -80,6 +97,39 @@ export const reportController = {
       const report = await reportService.getProfitReport(filters);
       res.json(report);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
+      res.status(500).json({ error: e.message });
+    }
+  },
+
+  async getExpenseReport(req: AuthRequest, res: Response) {
+    try {
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
+      const report = await reportService.getExpenseReport({
+        branchId,
+        companyId: req.user?.companyId,
+        startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
+      });
+      res.json(report);
+    } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
+      res.status(500).json({ error: e.message });
+    }
+  },
+
+  async getBranchComparison(req: AuthRequest, res: Response) {
+    try {
+      if (req.user?.branchId) {
+        return res.status(403).json({ error: 'Branch comparison is only available for head office users.' });
+      }
+      const rows = await reportService.getBranchComparison({
+        startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+        endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
+      });
+      res.json(rows);
+    } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
@@ -99,42 +149,52 @@ export const reportController = {
 
   async getInventoryAging(req: AuthRequest, res: Response) {
     try {
-      const branchId = req.query.branchId as string;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const report = await reportService.getInventoryAging(branchId);
       res.json(report);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
 
   async getInventoryFinancial(req: AuthRequest, res: Response) {
     try {
-      const branchId = (req.query.branchId as string) || req.user?.branchId;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const report = await reportService.getInventoryFinancialSummary(branchId);
       res.json(report);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
 
   async getInventoryMarketValue(req: AuthRequest, res: Response) {
     try {
-      const branchId = (req.query.branchId as string) || req.user?.branchId;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const report = await reportService.getInventoryMarketValue(branchId, req.user?.companyId);
       res.json(report);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
 
   async getTopSellingModels(req: AuthRequest, res: Response) {
     try {
-      const branchId = req.query.branchId as string;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const limit = parseInt(req.query.limit as string) || 10;
+      logger.info(
+        { companyId: req.user?.companyId ?? null, branchId: branchId ?? null, limit },
+        '[report] GET /reports/top-selling-models start'
+      );
       const report = await reportService.getTopSellingModels(branchId, limit);
+      logger.info({ companyId: req.user?.companyId ?? null }, '[report] GET /reports/top-selling-models done');
       res.json(report);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
+      logger.error({ err: e, stack: e?.stack }, '[report] top-selling-models error — returning empty fallback');
+      res.json([]);
     }
   },
 
@@ -150,21 +210,29 @@ export const reportController = {
 
   async getMonthlyRevenue(req: AuthRequest, res: Response) {
     try {
-      const branchId = req.query.branchId as string;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const months = parseInt(req.query.months as string) || 12;
-      const report = await reportService.getMonthlyRevenue(branchId, months);
+      logger.info(
+        { companyId: req.user?.companyId ?? null, branchId: branchId ?? null, months },
+        '[report] GET /reports/monthly-revenue start'
+      );
+      const report = await reportService.getMonthlyRevenue(branchId, months, req.user?.companyId);
+      logger.info({ companyId: req.user?.companyId ?? null }, '[report] GET /reports/monthly-revenue done');
       res.json(report);
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
+      logger.error({ err: e, stack: e?.stack }, '[report] monthly-revenue error — returning empty fallback');
+      res.json({ months: [], dataQuality: { hasLegacyCost: false, hasMissingFx: false } });
     }
   },
 
   async getInventoryDistribution(req: AuthRequest, res: Response) {
     try {
-      const branchId = req.query.branchId as string;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const report = await reportService.getInventoryCategoryDistribution(branchId);
       res.json(report);
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
@@ -172,12 +240,14 @@ export const reportController = {
   async exportSales(req: AuthRequest, res: Response) {
     try {
       const format = (req.query.format as string) || 'csv';
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const filters = {
-        branchId: req.query.branchId as string,
+        branchId,
+        companyId: req.user?.companyId,
         startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
         endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
       };
-      const sales = await reportService.getSalesReport(filters);
+      const { sales } = await reportService.getSalesReport(filters);
       if (format === 'excel') {
         const XLSX = await import('xlsx');
         const rows = sales.flatMap((s) =>
@@ -202,7 +272,7 @@ export const reportController = {
         res.send(buf);
       } else {
         const headers = 'SaleID,Date,Branch,Customer,Total,Profit,IMEI,Brand,Model';
-        const rows = sales.flatMap((s) =>
+        const rows = sales.flatMap((s: any) =>
           (s as any).saleItems.map((i: any) =>
             [s.id, s.createdAt, (s as any).branch?.name, (s as any).customer?.name, s.totalAmount, s.profit, i.imei, (i as any).inventory?.brand, (i as any).inventory?.model].join(',')
           )
@@ -213,6 +283,7 @@ export const reportController = {
         res.send(csv);
       }
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   },
@@ -220,8 +291,9 @@ export const reportController = {
   async exportInventory(req: AuthRequest, res: Response) {
     try {
       const format = (req.query.format as string) || 'csv';
-      const branchId = req.query.branchId as string;
+      const branchId = assertBranchQueryAllowed(req.user, req.query.branchId as string);
       const inventory = await prisma.inventory.findMany({
+        // Never trust branchId from query for branch-assigned users (assertBranchQueryAllowed enforces this).
         where: branchId ? { branchId } : {},
         include: { branch: true }
       });
@@ -258,6 +330,7 @@ export const reportController = {
         res.send(csv);
       }
     } catch (e: any) {
+      if (e.statusCode === 403) return res.status(403).json({ error: e.message });
       res.status(500).json({ error: e.message });
     }
   }

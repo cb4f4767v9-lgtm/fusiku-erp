@@ -2,13 +2,12 @@ import { prisma } from '../utils/prisma';
 import { requireTenantCompanyId } from '../utils/tenantContext';
 
 export const supplierService = {
-  async getAll(companyId?: string | null) {
-    const where: any = { isActive: true };
-    if (companyId) where.companyId = companyId;
+  async getAll() {
+    const companyId = requireTenantCompanyId();
     return prisma.supplier.findMany({
-      where,
+      where: { isActive: true, companyId },
       orderBy: { name: 'asc' },
-      include: { contacts: true }
+      include: { contacts: true },
     });
   },
 
@@ -22,6 +21,7 @@ export const supplierService = {
 
   async create(data: {
     name: string;
+    currency?: string;
     companyName?: string;
     email?: string;
     website?: string;
@@ -35,21 +35,29 @@ export const supplierService = {
     moneyStatus?: string;
     availableBalance?: number;
     blockedBalance?: number;
-    companyId?: string;
     contacts?: { contactType: string; value: string; qrCodeUrl?: string }[];
   }) {
     if (!data.country?.trim()) throw new Error('Country is required');
-    const companyId = data.companyId ?? requireTenantCompanyId();
-    const { contacts, ...supplierData } = data;
+    const companyId = requireTenantCompanyId();
+    const { contacts, companyId: _ignoredCompany, currency: currencyRaw, ...supplierData } = data as typeof data & {
+      companyId?: string;
+    };
+    const currency =
+      String(currencyRaw ?? 'USD')
+        .trim()
+        .toUpperCase()
+        .slice(0, 8) || 'USD';
+
     const supplier = await prisma.supplier.create({
       data: {
         ...supplierData,
+        currency,
         companyId,
         openingBalance: Number(supplierData.openingBalance ?? 0),
         balanceType: supplierData.balanceType || 'debit',
         availableBalance: Number(supplierData.availableBalance ?? 0),
-        blockedBalance: Number(supplierData.blockedBalance ?? 0)
-      }
+        blockedBalance: Number(supplierData.blockedBalance ?? 0),
+      },
     });
     if (contacts?.length) {
       await prisma.supplierContact.createMany({
@@ -66,6 +74,7 @@ export const supplierService = {
     id: string,
     data: Partial<{
       name: string;
+      currency: string;
       companyName: string;
       email: string;
       website: string;
@@ -98,6 +107,13 @@ export const supplierService = {
     const updateData: any = { ...supplierData };
     if (supplierData.availableBalance !== undefined) updateData.availableBalance = Number(supplierData.availableBalance);
     if (supplierData.blockedBalance !== undefined) updateData.blockedBalance = Number(supplierData.blockedBalance);
+    if (supplierData.currency !== undefined) {
+      updateData.currency =
+        String(supplierData.currency)
+          .trim()
+          .toUpperCase()
+          .slice(0, 8) || 'USD';
+    }
 
     const updated = await prisma.supplier.updateMany({
       where: { id, companyId },

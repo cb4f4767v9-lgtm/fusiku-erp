@@ -30,9 +30,11 @@ export const priceEstimatorService = {
     storage?: string;
     condition?: string;
     purchasePrice?: number;
+    companyId: string;
   }): Promise<PriceEstimate> {
     const factors: string[] = [];
     let basePrice = 0;
+    const companyId = String(params.companyId || '').trim();
 
     const marketPrice = await prisma.marketPrice.findFirst({
       where: {
@@ -56,6 +58,7 @@ export const priceEstimatorService = {
       const recentSale = await prisma.saleItem.findFirst({
         where: {
           inventory: {
+            companyId,
             brand: { equals: params.brand },
             model: { equals: params.model }
           }
@@ -71,6 +74,7 @@ export const priceEstimatorService = {
     if (!basePrice) {
       const invAgg = await prisma.inventory.aggregate({
         where: {
+          companyId,
           brand: { equals: params.brand },
           model: { equals: params.model }
         },

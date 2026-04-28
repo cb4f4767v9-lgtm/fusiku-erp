@@ -5,7 +5,7 @@
 import { prisma } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
-export type AlertType = 'high_profit' | 'repair_spike' | 'fast_selling' | 'inventory_risk' | 'price_optimization';
+export type AlertType = 'high_profit' | 'repair_spike' | 'fast_selling' | 'inventory_risk' | 'price_optimization' | 'anomaly';
 
 export const aiAlertAgent = {
   async createAlert(companyId: string, type: AlertType, title: string, message: string, severity: 'info' | 'warning' | 'success' = 'info', data?: object) {
@@ -16,23 +16,41 @@ export const aiAlertAgent = {
   },
 
   async generateAlerts(params: { companyId: string }) {
-    const companyId = params.companyId;
+    const companyId = String(params.companyId || '').trim();
+    if (!companyId) {
+      throw new Error('companyId is required for generateAlerts');
+    }
 
-    const [sales, repairs, inventory] = await Promise.all([
+    const [sales, repairs, inventory, expensesMonth, profitMonth] = await Promise.all([
       prisma.sale.findMany({
-        where: companyId ? { companyId } : {},
+        where: { companyId },
         include: { saleItems: { include: { inventory: true } } },
         orderBy: { createdAt: 'desc' },
         take: 50
       }),
       prisma.repair.findMany({
-        where: { status: 'completed' },
+        where: { companyId, status: 'completed' },
         orderBy: { createdAt: 'desc' },
         take: 10
       }),
       prisma.inventory.findMany({
-        where: { status: 'available' },
+        where: { companyId, status: 'available' },
         include: { branch: true }
+      }),
+      prisma.expense.aggregate({
+        where: {
+          companyId,
+          expenseDate: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
+        },
+        _sum: { amountUsd: true, amount: true }
+      }),
+      prisma.sale.aggregate({
+        where: {
+          companyId,
+          status: 'completed',
+          createdAt: { gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
+        },
+        _sum: { profitUsd: true, profit: true }
       })
     ]);
 
@@ -74,6 +92,36 @@ export const aiAlertAgent = {
       await this.createAlert(companyId, 'high_profit', 'High profit opportunity detected', `${highProfitItems.length} sales with profit >$200 in last 7 days`, 'success', { count: highProfitItems.length });
     }
 
+    // Low profit warning (today)
+    const salesToday = recentSales.filter(s => new Date(s.createdAt) >= new Date(now.getTime() - 24 * 60 * 60 * 1000));
+    const todayRevenue = salesToday.reduce((a, s) => a + Number((s as any).totalAmountUsd ?? (s as any).totalAmount ?? 0), 0);
+    const todayProfit = salesToday.reduce((a, s) => a + Number((s as any).profitUsd ?? (s as any).profit ?? 0), 0);
+    const margin = todayRevenue > 0 ? (todayProfit / todayRevenue) * 100 : 0;
+    if (todayRevenue > 0 && margin < 8) {
+      await this.createAlert(
+        companyId,
+        'inventory_risk',
+        'Low profit warning (today)',
+        `Today margin is ${margin.toFixed(1)}% (profit $${todayProfit.toFixed(0)} on sales $${todayRevenue.toFixed(0)}).`,
+        margin < 3 ? 'warning' : 'info',
+        { marginPct: margin, todayRevenue, todayProfit }
+      );
+    }
+
+    // High expense alert (month-to-date)
+    const mtdExpense = Number((expensesMonth as any)?._sum?.amountUsd ?? (expensesMonth as any)?._sum?.amount ?? 0);
+    const mtdProfit = Number((profitMonth as any)?._sum?.profitUsd ?? (profitMonth as any)?._sum?.profit ?? 0);
+    if (mtdExpense > 0 && (mtdProfit <= 0 || mtdExpense / Math.max(1, mtdProfit) > 0.9)) {
+      await this.createAlert(
+        companyId,
+        'inventory_risk',
+        'High expense alert (MTD)',
+        `MTD expenses $${mtdExpense.toFixed(0)} vs MTD profit $${mtdProfit.toFixed(0)}.`,
+        mtdProfit <= 0 ? 'warning' : 'info',
+        { mtdExpense, mtdProfit }
+      );
+    }
+
     const oldInventory = inventory.filter(i => {
       const days = (now.getTime() - new Date(i.createdAt).getTime()) / (24 * 60 * 60 * 1000);
       return days > 90;
@@ -84,8 +132,11 @@ export const aiAlertAgent = {
   },
 
   async getAlerts(params?: { companyId?: string; limit?: number }): Promise<any[]> {
-    const where: any = {};
-    if (params?.companyId) where.companyId = params.companyId;
+    const companyId = String(params?.companyId || '').trim();
+    if (!companyId) {
+      throw new Error('companyId is required for getAlerts');
+    }
+    const where: any = { companyId };
 
     return prisma.aIAlert.findMany({
       where,

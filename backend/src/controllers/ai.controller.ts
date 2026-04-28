@@ -12,11 +12,41 @@ import { profitAnalysisAgent } from '../ai/profitAnalysis.agent';
 import { inventoryForecastAgent } from '../ai/inventoryForecast.agent';
 import { aiAlertAgent } from '../ai/aiAlert.agent';
 import { prisma } from '../utils/prisma';
+import { aiService } from '../services/ai.service';
+import { aiBusinessEngineService, emptyBusinessEngineResponse } from '../aiBusiness/aiBusinessEngine.service';
+import { logger } from '../utils/logger';
+import { aiSimulationService } from '../aiBusiness/aiSimulation.service';
+import { aiContextEngine } from '../aiBusiness/aiContextEngine';
+import { smartPricingEngine } from '../aiBusiness/smartPricing';
+
+function isSuperBranchUser(req: AuthRequest): boolean {
+  return req.user?.isSystemAdmin === true || req.user?.branchRole === 'SUPER_ADMIN' || !req.user?.branchId;
+}
+
+async function resolveEffectiveBranchId(req: AuthRequest, companyId: string, candidate: unknown): Promise<string | null> {
+  // Branch roles: never trust incoming branchId.
+  if (!isSuperBranchUser(req)) {
+    const bid = String(req.user?.branchId || '').trim();
+    return bid || null;
+  }
+
+  const raw = candidate == null ? '' : String(candidate || '').trim();
+  if (!raw) return null;
+  const branch = await prisma.branch.findFirst({ where: { id: raw, companyId }, select: { id: true } });
+  if (!branch) {
+    const e: any = new Error('Invalid branch for this company');
+    e.statusCode = 403;
+    throw e;
+  }
+  return raw;
+}
 
 export const aiController = {
   async deviceIdentify(req: AuthRequest, res: Response) {
     try {
-      const result = await deviceIdentificationService.identify(req.params.imei);
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
+      const result = await deviceIdentificationService.identify(req.params.imei, { companyId });
       res.json(result || { brand: '', model: '', storage: '', color: '', source: null });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -25,9 +55,11 @@ export const aiController = {
 
   async repairSuggestions(req: AuthRequest, res: Response) {
     try {
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
       const { model, fault } = req.query;
       if (!model || !fault) return res.status(400).json({ error: 'model and fault required' });
-      const result = await repairAssistantService.getSuggestions(model as string, fault as string);
+      const result = await repairAssistantService.getSuggestions(model as string, fault as string, { companyId });
       res.json(result);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
@@ -36,6 +68,8 @@ export const aiController = {
 
   async priceEstimate(req: AuthRequest, res: Response) {
     try {
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
       const { brand, model, storage, condition, purchasePrice } = req.query;
       if (!brand || !model) return res.status(400).json({ error: 'brand and model required' });
       const result = await priceEstimatorService.estimate({
@@ -43,7 +77,8 @@ export const aiController = {
         model: model as string,
         storage: storage as string,
         condition: condition as string,
-        purchasePrice: purchasePrice ? Number(purchasePrice) : undefined
+        purchasePrice: purchasePrice ? Number(purchasePrice) : undefined,
+        companyId,
       });
       res.json(result);
     } catch (e: any) {
@@ -63,8 +98,11 @@ export const aiController = {
 
   async insights(req: AuthRequest, res: Response) {
     try {
-      const branchId = req.query.branchId as string;
-      const where: any = branchId ? { branchId } : {};
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
+      const branchId = await resolveEffectiveBranchId(req, companyId, req.query.branchId);
+      let where: any = { companyId };
+      if (branchId) where = { ...where, branchId };
 
       const [inventory, repairs, topProfit, frequentFaults] = await Promise.all([
         prisma.inventory.findMany({
@@ -72,7 +110,7 @@ export const aiController = {
           select: { brand: true, model: true, storage: true, condition: true, purchasePrice: true, sellingPrice: true }
         }),
         prisma.repair.findMany({
-          where: { status: 'completed' },
+          where: { companyId, ...(branchId ? { branchId } : {}), status: 'completed' },
           select: { faultDescription: true, repairCost: true, technicianId: true }
         }),
         prisma.inventory.findMany({
@@ -81,7 +119,7 @@ export const aiController = {
         }),
         prisma.repair.groupBy({
           by: ['faultDescription'],
-          where: { status: 'completed' },
+          where: { companyId, ...(branchId ? { branchId } : {}), status: 'completed' },
           _count: { id: true }
         })
       ]);
@@ -92,7 +130,8 @@ export const aiController = {
             brand: inv.brand,
             model: inv.model,
             storage: inv.storage,
-            condition: inv.condition
+            condition: inv.condition,
+            companyId,
           });
           return { ...inv, estimate: est };
         })
@@ -149,9 +188,11 @@ export const aiController = {
   },
 
   async businessIntelligence(req: AuthRequest, res: Response) {
+    const companyId = req.user?.companyId;
+    if (!companyId) return res.status(403).json({ error: 'Tenant context missing (companyId)' });
+    let branchId: string | null = null;
     try {
-      const branchId = req.query.branchId as string;
-      const companyId = req.user?.companyId;
+      branchId = await resolveEffectiveBranchId(req, companyId, req.query.branchId);
 
       const [purchaseRecs, inventoryRisks, repairPatterns, profitAnalysis, forecast, alerts] = await Promise.all([
         purchaseRecommendationAgent.getRecommendations({ companyId, limit: 10 }),
@@ -163,7 +204,7 @@ export const aiController = {
       ]);
 
       const priceOpts = await Promise.all(
-        (await prisma.inventory.findMany({ where: { status: 'available' }, take: 5 })).map(async (inv) => {
+        (await prisma.inventory.findMany({ where: { companyId, ...(branchId ? { branchId } : {}), status: 'available' }, take: 5 })).map(async (inv) => {
           const days = Math.floor((Date.now() - new Date(inv.createdAt).getTime()) / (24 * 60 * 60 * 1000));
           const opt = await priceOptimizationAgent.optimize({
             brand: inv.brand,
@@ -190,7 +231,17 @@ export const aiController = {
         priceOptimizations: priceOpts
       });
     } catch (e: any) {
-      res.status(500).json({ error: e.message });
+      logger.warn({ err: e }, '[ai] businessIntelligence degraded — returning empty payload');
+      res.status(200).json({
+        purchaseRecommendations: [],
+        inventoryRiskAlerts: [],
+        repairPatterns: [],
+        technicianEfficiency: [],
+        profitAnalysis: null,
+        inventoryForecast: null,
+        aiAlerts: [],
+        priceOptimizations: [],
+      });
     }
   },
 
@@ -211,6 +262,112 @@ export const aiController = {
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
+    }
+  },
+
+  async ask(req: AuthRequest, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      const userId = (req.user as any)?.userId;
+      if (!companyId || !userId) return res.status(403).json({ error: 'Tenant context missing' });
+
+      const question = String(req.body?.question || '').trim();
+      if (!question) return res.status(400).json({ error: 'question is required' });
+
+      const branchId = await resolveEffectiveBranchId(req, companyId, req.body?.branchId);
+      const out = await aiService.askAI(companyId, userId, question, { branchId });
+      res.json(out);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  },
+
+  async businessEngine(req: AuthRequest, res: Response) {
+    const companyId = req.user?.companyId;
+    if (!companyId) return res.status(403).json({ error: 'Tenant context missing' });
+    let branchId: string | null = null;
+    try {
+      branchId = await resolveEffectiveBranchId(req, companyId, req.query?.branchId);
+      const out = await aiBusinessEngineService.build({ companyId, branchId });
+      res.json(out);
+    } catch (e: any) {
+      logger.warn({ err: e }, '[ai] businessEngine degraded — returning empty engine payload');
+      try {
+        branchId = await resolveEffectiveBranchId(req, companyId, req.query?.branchId);
+      } catch {
+        branchId = null;
+      }
+      res.json(emptyBusinessEngineResponse(companyId, branchId));
+    }
+  },
+
+  // Focused business-decision endpoints (PowerBI + ops dashboards).
+  async pricingSuggestions(req: AuthRequest, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing' });
+      const branchId = await resolveEffectiveBranchId(req, companyId, req.query?.branchId);
+      const limit = Math.max(3, Math.min(25, Math.floor(Number(req.query?.limit || 10))));
+      const ctx = await aiContextEngine.build({ companyId, branchId, days: 30 });
+      const out = await smartPricingEngine.recommend({ companyId, branchId, ctx, limit });
+      res.json({ companyId, branchId, generatedAt: ctx.generatedAt, pricing: out });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  },
+
+  async highDemand(req: AuthRequest, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing' });
+      const branchId = await resolveEffectiveBranchId(req, companyId, req.query?.branchId);
+      const days = Math.max(7, Math.min(120, Math.floor(Number(req.query?.days || 30))));
+      const limit = Math.max(3, Math.min(50, Math.floor(Number(req.query?.limit || 10))));
+      const ctx = await aiContextEngine.build({ companyId, branchId, days });
+      res.json({
+        companyId,
+        branchId,
+        generatedAt: ctx.generatedAt,
+        days,
+        topSelling: ctx.topSellingItems.slice(0, limit),
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  },
+
+  async lowStockRisks(req: AuthRequest, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing' });
+      const branchId = await resolveEffectiveBranchId(req, companyId, req.query?.branchId);
+      const days = Math.max(7, Math.min(120, Math.floor(Number(req.query?.days || 30))));
+      const ctx = await aiContextEngine.build({ companyId, branchId, days });
+      res.json({
+        companyId,
+        branchId,
+        generatedAt: ctx.generatedAt,
+        lowStockModels: ctx.inventorySummary.lowStockModels,
+        notes: ctx.inventorySummary.lowStockModels.length
+          ? 'These models are below the low-stock heuristic threshold.'
+          : 'No low-stock risks detected by heuristic threshold.',
+      });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  },
+
+  async simulate(req: AuthRequest, res: Response) {
+    try {
+      const companyId = req.user?.companyId;
+      if (!companyId) return res.status(403).json({ error: 'Tenant context missing' });
+      const priceIncreasePct = Number(req.body?.priceIncreasePct ?? req.query?.priceIncreasePct ?? 0);
+      const branchIdRaw = req.body?.branchId ?? req.query?.branchId;
+      const branchId = await resolveEffectiveBranchId(req, companyId, branchIdRaw);
+      const out = await aiSimulationService.simulatePriceChange({ companyId, branchId, priceIncreasePct });
+      res.json(out);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
     }
   }
 };

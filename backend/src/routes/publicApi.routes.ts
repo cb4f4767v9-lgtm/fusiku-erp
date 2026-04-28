@@ -1,6 +1,9 @@
 /**
  * Public API routes - /api/public/v1/
  * Phase 10 - Platform API & Extension Ecosystem
+ *
+ * Future: storefront inventory sync and public order endpoints should extend this router
+ * (types reserved in `src/platform/storefront/`). Keep JSON REST and API-key auth.
  */
 import { Router } from 'express';
 import { apiKeyMiddleware, requirePermission } from '../middlewares/apiKey.middleware';

@@ -2,6 +2,7 @@ import { Response } from 'express';
 import multer from 'multer';
 import { AuthRequest } from '../middlewares/auth.middleware';
 import { importService } from '../services/import.service';
+import { logger } from '../utils/logger';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -20,7 +21,7 @@ export const importController = {
       const result = await importService.importInventory(file.buffer, branchId);
       res.json(result);
     } catch (e: any) {
-      console.error(e);
+      logger.error({ err: e }, '[import] inventory import failed');
       res.status(500).json({ error: e.message || 'Import failed' });
     }
   },
@@ -36,7 +37,7 @@ export const importController = {
       const result = await importService.importSuppliers(file.buffer);
       res.json(result);
     } catch (e: any) {
-      console.error(e);
+      logger.error({ err: e }, '[import] suppliers import failed');
       res.status(500).json({ error: e.message || 'Import failed' });
     }
   },
@@ -58,7 +59,7 @@ export const importController = {
 
       res.json(result);
     } catch (e: any) {
-      console.error(e);
+      logger.error({ err: e }, '[import] purchases import failed');
       res.status(500).json({ error: e.message || 'Import failed' });
     }
   }

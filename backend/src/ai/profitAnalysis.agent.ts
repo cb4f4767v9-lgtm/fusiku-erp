@@ -34,8 +34,9 @@ export const profitAnalysisAgent = {
     topBranches: ProfitByBranch[];
     topTechnicians: ProfitByTechnician[];
   }> {
-    const where: any = {};
-    if (params?.companyId) where.companyId = params.companyId;
+    const companyId = String(params?.companyId || '').trim();
+    if (!companyId) return { topModels: [], topBranches: [], topTechnicians: [] };
+    const where: any = { companyId };
 
     const sales = await prisma.sale.findMany({
       where,
@@ -63,20 +64,20 @@ export const profitAnalysisAgent = {
     const [repairs, refurbish] = await Promise.all([
       prisma.repair.groupBy({
         by: ['technicianId'],
-        where: { status: 'completed' },
+        where: { companyId, status: 'completed' },
         _sum: { repairCost: true },
         _count: { id: true }
       }),
       prisma.refurbishJob.groupBy({
         by: ['technicianId'],
-        where: { status: 'completed' },
+        where: { companyId, status: 'completed' },
         _sum: { laborCost: true },
         _count: { id: true }
       })
     ]);
 
     const techIds = [...new Set([...repairs.map(r => r.technicianId), ...refurbish.map(r => r.technicianId)])];
-    const users = await prisma.user.findMany({ where: { id: { in: techIds } }, select: { id: true, name: true } });
+    const users = await prisma.user.findMany({ where: { companyId, id: { in: techIds } }, select: { id: true, name: true } });
 
     const topTechnicians: ProfitByTechnician[] = techIds.map(id => {
       const r = repairs.find(x => x.technicianId === id);
