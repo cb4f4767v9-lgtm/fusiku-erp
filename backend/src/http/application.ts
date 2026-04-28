@@ -56,7 +56,16 @@ export function buildApplication() {
       legacyHeaders: false,
       // Avoid counting errors during partial outages; reduces feedback loops.
       skipFailedRequests: true,
-      store: createPrefixRedisRateLimitStore('rl:http'),
+      store: (() => {
+        // Redis is optional. If not configured (or store init fails), fail open using in-memory counters.
+        if (!process.env.REDIS_URL) return undefined;
+        try {
+          return createPrefixRedisRateLimitStore('rl:http');
+        } catch (err) {
+          logger.warn({ err }, '[rate-limit] Redis store init failed — falling back to in-memory store');
+          return undefined;
+        }
+      })(),
     })
   );
 

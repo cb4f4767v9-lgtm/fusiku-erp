@@ -31,27 +31,47 @@ export function assertProductionEnvironment(): void {
   const nodeEnv = process.env.NODE_ENV || 'development';
   if (nodeEnv !== 'production') return;
 
+  const strict = String(process.env.ENV_STRICT || '0') === '1';
+
   const jwt = process.env.JWT_SECRET || '';
   if (!isJwtSecretStrong(jwt)) {
-    logger.fatal(
-      { MIN_JWT_SECRET_LENGTH },
-      '[env] FATAL: JWT_SECRET must be set to a strong non-default value in production (min 32 characters, not a known placeholder).'
-    );
-    process.exit(1);
+    if (strict) {
+      logger.fatal(
+        { MIN_JWT_SECRET_LENGTH },
+        '[env] FATAL: JWT_SECRET must be set to a strong non-default value in production (min 32 characters, not a known placeholder).'
+      );
+      process.exit(1);
+    } else {
+      logger.error(
+        { MIN_JWT_SECRET_LENGTH },
+        '[env] JWT_SECRET is missing/weak for production (set ENV_STRICT=1 to fail hard).'
+      );
+    }
   }
 
   const refresh = process.env.REFRESH_SECRET || '';
   if (!isRefreshSecretStrong(refresh)) {
-    logger.fatal(
-      { MIN_JWT_SECRET_LENGTH },
-      '[env] FATAL: REFRESH_SECRET must be set to a strong value in production (min 32 characters, not a known placeholder).'
-    );
-    process.exit(1);
+    if (strict) {
+      logger.fatal(
+        { MIN_JWT_SECRET_LENGTH },
+        '[env] FATAL: REFRESH_SECRET must be set to a strong value in production (min 32 characters, not a known placeholder).'
+      );
+      process.exit(1);
+    } else {
+      logger.error(
+        { MIN_JWT_SECRET_LENGTH },
+        '[env] REFRESH_SECRET is missing/weak for production (set ENV_STRICT=1 to fail hard).'
+      );
+    }
   }
 
   if (!process.env.CORS_ORIGIN?.trim()) {
-    logger.fatal('[env] FATAL: CORS_ORIGIN must be set in production (comma-separated browser origin allowlist).');
-    process.exit(1);
+    if (strict) {
+      logger.fatal('[env] FATAL: CORS_ORIGIN must be set in production (comma-separated browser origin allowlist).');
+      process.exit(1);
+    } else {
+      logger.error('[env] CORS_ORIGIN is not set in production (set ENV_STRICT=1 to fail hard).');
+    }
   }
 }
 

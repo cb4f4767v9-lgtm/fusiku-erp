@@ -39,6 +39,45 @@ const PORT = (() => {
 
 const HOST = String(process.env.HOST || '0.0.0.0');
 
+// Make unexpected crashes visible in Railway logs.
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason }, '[process] unhandledRejection');
+  try {
+    Sentry.captureException(reason);
+  } catch {}
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, '[process] uncaughtException');
+  try {
+    Sentry.captureException(err);
+  } catch {}
+  // Keep default behavior (crash) in production unless explicitly opted out.
+  if (process.env.NODE_ENV === 'production' && String(process.env.KEEP_ALIVE_ON_UNCAUGHT || '0') !== '1') {
+    process.exit(1);
+  }
+});
+
+let shuttingDown = false;
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.warn({ signal }, '[process] shutting down');
+  try {
+    io.close();
+  } catch {}
+  try {
+    httpServer.close();
+  } catch {}
+  try {
+    await prisma.$disconnect();
+  } catch {}
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));
+
 io.use((socket, next) => {
   try {
     const token =
