@@ -11,14 +11,11 @@ import { auditSystem } from './services/audit.service';
 import { getSocketIoCors } from './config/httpCors';
 import { logger } from './utils/logger';
 import { prisma } from './utils/prisma';
-import { prismaPlatform } from './utils/prismaPlatform';
 import { connectPrismaWithRetry } from './utils/dbConnect';
 import { describeDatabaseUrl, getActiveDatabaseUrl } from './utils/databaseUrl';
 import { currencyService } from './services/currency.service';
 import { verifyToken } from './utils/jwt';
 import { isPlatformAdminRole } from './utils/tenantContext';
-import { ensurePowerBiViews } from './analytics/ensurePowerBiViews';
-import { ensureAnalyticsIndexes } from './analytics/ensureAnalyticsIndexes';
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -39,6 +36,8 @@ const PORT = (() => {
   const n = Number(process.env.PORT);
   return Number.isFinite(n) && n > 0 ? n : 3001;
 })();
+
+const HOST = String(process.env.HOST || '0.0.0.0');
 
 io.use((socket, next) => {
   try {
@@ -64,13 +63,23 @@ io.use((socket, next) => {
 
 async function start() {
   try {
-    await startOtel();
-    await connectPrismaWithRetry(prisma);
+    // Observability must never prevent the service from starting.
+    try {
+      await startOtel();
+    } catch (err) {
+      logger.warn({ err }, '[otel] failed to start (soft-fail)');
+    }
 
-// TEMP FIX (disable second DB + analytics)
-// await connectPrismaWithRetry(prismaPlatform);
-// await ensurePowerBiViews(prismaPlatform);
-// await ensureAnalyticsIndexes(prismaPlatform);
+    // Prisma connect is attempted eagerly for faster failure visibility,
+    // but can be configured to soft-fail to avoid Railway 502 on transient DB issues.
+    try {
+      await connectPrismaWithRetry(prisma);
+    } catch (err) {
+      const strict = String(process.env.DB_CONNECT_STRICT || '0') === '1';
+      logger.error({ err, strict }, '[db] failed to connect on startup');
+      if (strict) throw err;
+    }
+
     const dbUrl = getActiveDatabaseUrl();
     const { safeLog } = describeDatabaseUrl(dbUrl);
 
@@ -83,8 +92,8 @@ async function start() {
       );
     }
 
-    httpServer.listen(PORT, '0.0.0.0', () => {
-      logger.info(`🚀 Fusiku API + static UI on http://0.0.0.0:${PORT}`);
+    httpServer.listen(PORT, HOST, () => {
+      logger.info(`🚀 Fusiku API + static UI on http://${HOST}:${PORT}`);
 
       setInterval(() => {
         currencyService.fetchLiveRates().catch(() => {});

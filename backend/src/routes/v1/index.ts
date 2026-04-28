@@ -61,6 +61,11 @@ import { requireSystemDiagnosticsRole } from '../../middlewares/systemDiagnostic
 
 const v1Router = Router();
 
+// Lightweight public health endpoint for load balancers (no auth, no DB required).
+v1Router.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
 /**
  * Standard protected chain for `/api/v1/*`:
  * 1. `authMiddleware` — verify JWT, bind tenant ALS (`userId`, `companyId`, `branchId`, …).
