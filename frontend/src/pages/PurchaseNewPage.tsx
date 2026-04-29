@@ -11,8 +11,16 @@ import {
 } from '../services/api';
 import toast from 'react-hot-toast';
 import { Upload } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
 import { QuickAddDropdown } from '../components/QuickAddDropdown';
 import { BarcodeStickerSheet } from '../components/BarcodeSticker';
+import { useSaasCommercialGate } from '../hooks/useSaasCommercialGate';
+import { enqueueIfOfflineDesktop } from '../offline/outboxEnqueue';
+import { OUTBOX_KIND } from '../offline/outboxKinds';
+import { PageLayout } from '../components/design-system';
+import { formatNumberForUi } from '../utils/formatting';
+import { useAuth } from '../hooks/useAuth';
+import { isSuperAdmin } from '../utils/permissions';
 
 const PURCHASE_CATEGORIES = [
   'Phones', 'Screens', 'Batteries', 'Speakers', 'Flex Cables', 'IC Chips',
@@ -52,6 +60,8 @@ type ScreenItem = {
 export function PurchaseNewPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { commercialWritesAllowed } = useSaasCommercialGate();
+  const { user } = useAuth();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
@@ -69,7 +79,12 @@ export function PurchaseNewPage() {
   const [branchId, setBranchId] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [category, setCategory] = useState('Phones');
-  const categoryOptions = [...PURCHASE_CATEGORIES, ...categories.filter((c) => !PURCHASE_CATEGORIES.includes(c.name)).map((c) => c.name)].map((c) => ({ id: c, label: c }));
+  const categoryOptions = [
+    ...PURCHASE_CATEGORIES.map((c) => ({ id: c, label: c })),
+    ...categories
+      .filter((c) => !PURCHASE_CATEGORIES.includes(c.name))
+      .map((c) => ({ id: c.name, label: c.displayName ?? c.name }))
+  ];
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [cargoCost, setCargoCost] = useState(0);
   const [phoneItems, setPhoneItems] = useState<PhoneItem[]>([
@@ -98,6 +113,12 @@ export function PurchaseNewPage() {
   }, []);
 
   useEffect(() => { loadMasterData(); }, [loadMasterData]);
+  useEffect(() => {
+    if (!isSuperAdmin(user) && user?.branchId) {
+      setBranchId(user.branchId);
+      setImportForm((f) => ({ ...f, branchId: user.branchId! }));
+    }
+  }, [user?.branchId]);
   useEffect(() => {
     masterDataApi.getAll('phoneModels').then((r) => setPhoneModels(r.data)).catch(() => setPhoneModels([]));
   }, []);
@@ -212,6 +233,10 @@ export function PurchaseNewPage() {
   };
 
   const handleSave = async () => {
+    if (!commercialWritesAllowed) {
+      toast.error(t('saas.actionBlocked'));
+      return;
+    }
     if (!partyId || !branchId) {
       toast.error(t('purchases.fillRequiredFields'));
       return;
@@ -222,7 +247,7 @@ export function PurchaseNewPage() {
       return;
     }
     const payload: any = {
-      branchId,
+      branchId: isSuperAdmin(user) ? branchId : (user?.branchId || branchId),
       items: items.map((i) => ({ ...i, price: Number(i.price) })),
       cargoCost: Number(cargoCost) || 0,
       notes: invoiceNumber ? `Invoice: ${invoiceNumber}` : undefined
@@ -230,20 +255,30 @@ export function PurchaseNewPage() {
     if (partyType === 'Supplier') payload.supplierId = partyId;
     else payload.customerId = partyId;
     try {
+      if (await enqueueIfOfflineDesktop(OUTBOX_KIND.PURCHASE_CREATE, payload)) {
+        toast.success(t('offline.purchaseQueuedOffline'));
+        setShowSaveConfirm(false);
+        return;
+      }
       const { data } = await purchasesApi.create(payload);
       setSavedPurchaseId(data.id);
       setSavedStickerItems(data.createdItems || []);
       setShowSaveConfirm(false);
       toast.success(t('purchases.purchaseCreated'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!commercialWritesAllowed) {
+      toast.error(t('saas.actionBlocked'));
+      e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     const supplierId = importForm.supplierId || (partyType === 'Supplier' ? partyId : '');
-    const branchIdForImport = importForm.branchId || branchId;
+    const branchIdForImport = isSuperAdmin(user) ? (importForm.branchId || branchId) : (user?.branchId || importForm.branchId || branchId);
     if (!file || !branchIdForImport || !supplierId) {
       toast.error(t('purchases.selectFileBranchSupplier'));
       return;
@@ -255,7 +290,7 @@ export function PurchaseNewPage() {
       setImportForm({ supplierId: '', branchId: '' });
       navigate('/purchases');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('inventory.importFailed'));
+      toast.error(getErrorMessage(err, t('inventory.importFailed')));
     }
     e.target.value = '';
   };
@@ -305,21 +340,21 @@ export function PurchaseNewPage() {
   };
 
   return (
-    <div className="page purchase-new-page" onKeyDown={handleKeyDown} tabIndex={0}>
+    <PageLayout className="page purchase-new-page" onKeyDown={handleKeyDown} tabIndex={0}>
       <div className="purchase-new-header">
         <NavLink to="/purchases" className="breadcrumb-link">{t('purchases.purchaseList')}</NavLink>
       </div>
 
       <div className="purchase-new-top purchase-new-top-compact">
         <div className="form-field">
-          <label>{t('purchases.partyType', 'Party Type')}</label>
+          <label>{t('purchases.partyType')}</label>
           <select value={partyType} onChange={(e) => { setPartyType(e.target.value as 'Supplier' | 'Customer'); setPartyId(''); }}>
             <option value="Supplier">{t('purchases.supplier')}</option>
             <option value="Customer">{t('purchases.customer')}</option>
           </select>
         </div>
         <div className="form-field">
-          <label>{t('purchases.partyName', 'Party Name')}</label>
+          <label>{t('purchases.partyName')}</label>
           <QuickAddDropdown
             type={partyType === 'Supplier' ? 'supplier' : 'customer'}
             value={partyId}
@@ -340,19 +375,22 @@ export function PurchaseNewPage() {
                 <h4>{supplier.name}</h4>
                 <div className="supplier-balance-row">
                   <span>{t('suppliers.availableBalance')}</span>
-                  <span>{available.toLocaleString()}</span>
+                  <span>{formatNumberForUi(available, { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="supplier-balance-row">
                   <span>{t('suppliers.blockedBalance')}</span>
-                  <span>{blocked.toLocaleString()}</span>
+                  <span>{formatNumberForUi(blocked, { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="supplier-balance-row">
                   <span>{t('suppliers.invoiceAmount')}</span>
-                  <span>{invoiceAmount.toLocaleString()}</span>
+                  <span>{formatNumberForUi(invoiceAmount, { maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className={`supplier-balance-row remaining ${remaining < 0 ? 'negative' : ''}`}>
                   <span>{t('suppliers.remainingAfterInvoice')}</span>
-                  <span>{remaining.toLocaleString()}{remaining < 0 ? ` (${t('suppliers.creditPayable')})` : ''}</span>
+                  <span>
+                    {formatNumberForUi(remaining, { maximumFractionDigits: 2 })}
+                    {remaining < 0 ? ` (${t('suppliers.creditPayable')})` : ''}
+                  </span>
                 </div>
               </div>
             );
@@ -360,17 +398,28 @@ export function PurchaseNewPage() {
         </div>
         <div className="form-field">
           <label>{t('purchases.branch')}</label>
-          <QuickAddDropdown
-            type="branch"
-            value={branchId}
-            onChange={(id) => setBranchId(id)}
-            options={branches.map((b) => ({ id: b.id, label: b.name }))}
-            onRefresh={loadMasterData}
-            placeholder={t('common.select')}
-          />
+          {isSuperAdmin(user) ? (
+            <QuickAddDropdown
+              type="branch"
+              value={branchId}
+              onChange={(id) => setBranchId(id)}
+              options={branches.map((b) => ({ id: b.id, label: b.name }))}
+              onRefresh={loadMasterData}
+              placeholder={t('common.select')}
+            />
+          ) : (
+            <select value={user?.branchId || branchId} disabled>
+              <option value="">{t('common.select')}</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <div className="form-field">
-          <label>{t('purchases.currency', 'Currency')}</label>
+          <label>{t('purchases.currency')}</label>
           <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
@@ -379,18 +428,23 @@ export function PurchaseNewPage() {
           </select>
         </div>
         <div className="form-field">
-          <label>{t('purchases.invoiceNumber', 'Invoice #')}</label>
+          <label>{t('purchases.invoiceNumber')}</label>
           <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} placeholder={t('purchases.auto')} />
         </div>
         <div className="form-field">
-          <label>{t('purchases.cargoCost', 'Cargo Cost')}</label>
+          <label>{t('purchases.cargoCost')}</label>
           <input type="number" min={0} step={0.01} value={cargoCost || ''} onChange={(e) => setCargoCost(Number(e.target.value) || 0)} placeholder="0" />
         </div>
-        <button type="button" className="btn btn-secondary btn-compact" onClick={() => setShowImportModal(true)}>
+        <button
+          type="button"
+          className="btn btn-secondary btn-compact"
+          disabled={!commercialWritesAllowed}
+          onClick={() => setShowImportModal(true)}
+        >
           <Upload size={14} /> {t('common.import')}
         </button>
         <div className="form-field">
-          <label>{t('purchases.category', 'Category')}</label>
+          <label>{t('purchases.category')}</label>
           <QuickAddDropdown
             type="category"
             value={category}
@@ -429,7 +483,7 @@ export function PurchaseNewPage() {
                       type="brand"
                       value={row.brandId}
                       onChange={(id) => updatePhoneItem(i, 'brandId', id)}
-                      options={brands.map((b) => ({ id: b.id, label: b.name }))}
+                      options={brands.map((b) => ({ id: b.id, label: b.displayName ?? b.name }))}
                       onRefresh={loadMasterData}
                       placeholder={t('common.selectPlaceholder')}
                       dataCell={`${i}-2`}
@@ -440,7 +494,7 @@ export function PurchaseNewPage() {
                       type="phoneModel"
                       value={row.modelId}
                       onChange={(id) => updatePhoneItem(i, 'modelId', id)}
-                      options={getModelsForBrand(row.brandId).map((m) => ({ id: m.id, label: m.name }))}
+                      options={getModelsForBrand(row.brandId).map((m) => ({ id: m.id, label: m.displayName ?? m.name }))}
                       onRefresh={() => masterDataApi.getAll('phoneModels').then((r) => setPhoneModels(r.data)).catch(() => {})}
                       brands={brands}
                       placeholder={t('common.selectPlaceholder')}
@@ -499,7 +553,7 @@ export function PurchaseNewPage() {
                 <th className="col-sr">Sr#</th>
                 <th className="col-excel">{t('masterData.brand')}</th>
                 <th className="col-excel">{t('masterData.modelName')}</th>
-                <th className="col-excel">{t('purchases.screenType', 'Screen Type')}</th>
+                <th className="col-excel">{t('purchases.screenType')}</th>
                 <th className="col-excel">{t('masterData.deviceQualities')}</th>
                 <th className="col-excel">{t('purchases.qty')}</th>
                 <th className="col-excel">{t('receipt.price')}</th>
@@ -519,7 +573,7 @@ export function PurchaseNewPage() {
                         updateScreenItem(i, 'brandId', id);
                         updateScreenItem(i, 'brandName', b?.name ?? '');
                       }}
-                      options={brands.map((b) => ({ id: b.id, label: b.name }))}
+                      options={brands.map((b) => ({ id: b.id, label: b.displayName ?? b.name }))}
                       onRefresh={loadMasterData}
                       placeholder={t('common.selectPlaceholder')}
                       dataCell={`${i}-1`}
@@ -561,16 +615,24 @@ export function PurchaseNewPage() {
       )}
 
       {!['Phones', 'Screens'].includes(category) && (
-        <p className="purchase-other-cat">{t('purchases.otherCategoryNote', 'Use Phones or Screens for full table. Other categories coming soon.')}</p>
+        <p className="purchase-other-cat">{t('purchases.otherCategoryNote')}</p>
       )}
 
       <div className="purchase-total-row">
-        <strong>{t('purchases.total', 'Total')}: {currency} {grandTotal.toLocaleString()}</strong>
+        <strong>
+          {t('purchases.total')}: {currency}{' '}
+          {formatNumberForUi(grandTotal, { maximumFractionDigits: 2 })}
+        </strong>
       </div>
 
       <div className="purchase-actions">
-        <button type="button" className="btn btn-primary btn-compact" onClick={() => setShowSaveConfirm(true)}>
-          {t('common.save')} {t('purchases.purchase', 'Purchase')}
+        <button
+          type="button"
+          className="btn btn-primary btn-compact"
+          disabled={!commercialWritesAllowed}
+          onClick={() => setShowSaveConfirm(true)}
+        >
+          {t('common.save')} {t('purchases.purchase')}
         </button>
       </div>
 
@@ -588,6 +650,7 @@ export function PurchaseNewPage() {
             <select
               value={importForm.branchId || branchId}
               onChange={(e) => setImportForm((f) => ({ ...f, branchId: e.target.value }))}
+              disabled={!isSuperAdmin(user)}
             >
               <option value="">{t('purchases.branch')}</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -604,7 +667,7 @@ export function PurchaseNewPage() {
       {showSaveConfirm && (
         <div className="modal-overlay" onClick={() => setShowSaveConfirm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{t('purchases.saveConfirm', 'Save purchase?')}</h3>
+            <h3>{t('purchases.saveConfirm')}</h3>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowSaveConfirm(false)}>{t('common.no')}</button>
               <button type="button" className="btn btn-primary" onClick={handleSave}>{t('common.yes')}</button>
@@ -616,7 +679,7 @@ export function PurchaseNewPage() {
       {savedPurchaseId && (
         <div className="modal-overlay" onClick={() => navigate('/purchases')}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{t('purchases.printBarcodeStickers', 'Print Barcode Stickers?')}</h3>
+            <h3>{t('purchases.printBarcodeStickers')}</h3>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary btn-compact" onClick={() => navigate('/purchases')}>{t('common.no')}</button>
               <button type="button" className="btn btn-primary btn-compact" onClick={() => {
@@ -636,6 +699,6 @@ export function PurchaseNewPage() {
           <BarcodeStickerSheet items={savedStickerItems} />
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

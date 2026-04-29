@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { integrationLogsApi } from '../services/api';
+import { PageLayout, PageHeader, TableWrapper, LoadingSkeleton } from '../components/design-system';
+import { formatDateTimeForUi } from '../utils/formatting';
 
 export function IntegrationLogsPage() {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -9,26 +13,32 @@ export function IntegrationLogsPage() {
     integrationLogsApi.list({ limit: 100 }).then((r) => setLogs(r.data)).catch(() => setLogs([])).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="page-loading">Loading...</div>;
+  if (loading) {
+    return (
+      <PageLayout className="page">
+        <PageHeader title={t('integrationLogs.title')} subtitle={t('integrationLogs.subtitle')} />
+        <LoadingSkeleton rows={8} cols={4} />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="page">
-      <h1 className="page-title">Integration Logs</h1>
-      <p className="page-subtitle">Track API calls, webhooks, and external integrations.</p>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader title={t('integrationLogs.title')} subtitle={t('integrationLogs.subtitle')} />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Details</th>
+              <th>{t('integrationLogs.timestamp')}</th>
+              <th>{t('integrationLogs.type')}</th>
+              <th>{t('integrationLogs.status')}</th>
+              <th>{t('integrationLogs.details')}</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((log) => (
               <tr key={log.id}>
-                <td>{new Date(log.timestamp).toLocaleString()}</td>
+                <td>{formatDateTimeForUi(log.timestamp)}</td>
                 <td><span className="badge">{log.integrationType}</span></td>
                 <td>
                   <span className={`status-badge ${log.responseStatus >= 200 && log.responseStatus < 300 ? 'status-ok' : 'status-error'}`}>
@@ -40,10 +50,10 @@ export function IntegrationLogsPage() {
                 </td>
               </tr>
             ))}
-            {logs.length === 0 && <tr><td colSpan={4}>No integration logs</td></tr>}
+            {logs.length === 0 && <tr><td colSpan={4}>{t('integrationLogs.noLogs')}</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </TableWrapper>
+    </PageLayout>
   );
 }

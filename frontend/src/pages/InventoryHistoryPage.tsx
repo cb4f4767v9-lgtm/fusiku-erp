@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { stockMovementsApi, branchesApi } from '../services/api';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
+import { formatDateTimeForUi } from '../utils/formatting';
 
 export function InventoryHistoryPage() {
   const { t } = useTranslation();
@@ -21,26 +23,32 @@ export function InventoryHistoryPage() {
   }, [branchId, type]);
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">{t('inventoryHistory.title')}</h1>
-        <div className="filters-row">
-          <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-            <option value="">{t('inventoryHistory.allBranches')}</option>
-            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-          <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="">{t('inventoryHistory.allTypes')}</option>
-            <option value="purchase">{t('inventoryHistory.purchase')}</option>
-            <option value="sale">{t('inventoryHistory.sale')}</option>
-            <option value="repair">{t('inventoryHistory.repair')}</option>
-            <option value="refurbish">{t('inventoryHistory.refurbish')}</option>
-            <option value="transfer">{t('inventoryHistory.transfer')}</option>
-            <option value="adjustment">{t('inventoryHistory.adjustment')}</option>
-          </select>
-        </div>
-      </div>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader
+        title={t('inventoryHistory.title')}
+        actions={
+          <div className="filters-row">
+            <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+              <option value="">{t('inventoryHistory.allBranches')}</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+            <select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="">{t('inventoryHistory.allTypes')}</option>
+              <option value="purchase">{t('inventoryHistory.purchase')}</option>
+              <option value="sale">{t('inventoryHistory.sale')}</option>
+              <option value="repair">{t('inventoryHistory.repair')}</option>
+              <option value="refurbish">{t('inventoryHistory.refurbish')}</option>
+              <option value="transfer">{t('inventoryHistory.transfer')}</option>
+              <option value="adjustment">{t('inventoryHistory.adjustment')}</option>
+            </select>
+          </div>
+        }
+      />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
@@ -55,7 +63,7 @@ export function InventoryHistoryPage() {
           <tbody>
             {movements.map((m) => (
               <tr key={m.id}>
-                <td>{new Date(m.createdAt).toLocaleString()}</td>
+                <td>{formatDateTimeForUi(m.createdAt)}</td>
                 <td><span className="badge">{m.movementType || m.type}</span></td>
                 <td>{m.inventory?.imei}</td>
                 <td>{m.inventory?.brand} {m.inventory?.model}</td>
@@ -66,7 +74,7 @@ export function InventoryHistoryPage() {
             {movements.length === 0 && <tr><td colSpan={6}>{t('inventoryHistory.noMovements')}</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </TableWrapper>
+    </PageLayout>
   );
 }

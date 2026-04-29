@@ -7,14 +7,14 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForUrl(url, timeoutMs = 60000, intervalMs = 500) {
+async function waitForUrl(url, timeoutMs = 90000, intervalMs = 500) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
       const res = await fetch(url, { method: 'GET' });
       if (res && res.ok) return true;
     } catch {
-      // ignore; retry
+      // retry
     }
     await wait(intervalMs);
   }
@@ -22,29 +22,17 @@ async function waitForUrl(url, timeoutMs = 60000, intervalMs = 500) {
 }
 
 async function main() {
-  const frontendProc = spawn(npmCmd, ['run', 'dev:frontend'], {
+  // Hot-reload dev stack (Vite :5173 + API :3001) — no production build.
+  const devStack = spawn(npmCmd, ['run', 'dev'], {
     cwd: ROOT,
     stdio: 'inherit',
-    shell: true
+    shell: true,
   });
 
-  const backendProc = spawn(npmCmd, ['run', 'dev:backend'], {
-    cwd: ROOT,
-    stdio: 'inherit',
-    shell: true
-  });
-
-  // Wait for frontend and backend to be reachable before starting Electron
-  const frontendReady = await waitForUrl('http://127.0.0.1:5173/', 60000, 500);
-  if (!frontendReady) {
-    console.error('[dev:all] Frontend did not start in time (5173).');
-    process.exitCode = 1;
-    return;
-  }
-
-  const backendReady = await waitForUrl('http://127.0.0.1:3001/api/health', 60000, 500);
+  const backendReady = await waitForUrl('http://127.0.0.1:3001/api/health', 90000, 500);
   if (!backendReady) {
     console.error('[dev:all] Backend did not start in time (3001 /api/health).');
+    if (devStack && !devStack.killed) devStack.kill();
     process.exitCode = 1;
     return;
   }
@@ -52,11 +40,11 @@ async function main() {
   const electronProc = spawn(npmCmd, ['run', 'electron'], {
     cwd: ROOT,
     stdio: 'inherit',
-    shell: true
+    shell: true,
   });
 
   const shutdown = () => {
-    for (const p of [electronProc, backendProc, frontendProc]) {
+    for (const p of [electronProc, devStack]) {
       if (p && !p.killed) p.kill();
     }
   };
@@ -74,4 +62,3 @@ main().catch((e) => {
   console.error(e);
   process.exitCode = 1;
 });
-

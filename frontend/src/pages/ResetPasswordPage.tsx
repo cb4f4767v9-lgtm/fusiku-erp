@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { authApi } from "../services/api";
 import toast from "react-hot-toast";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { getErrorMessage } from "../utils/getErrorMessage";
 
 export function ResetPasswordPage() {
   const { t } = useTranslation();
@@ -39,7 +40,7 @@ export function ResetPasswordPage() {
       setSuccess(true);
       toast.success(t("auth.passwordUpdatedCanSignIn"));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t("auth.resetFailed"));
+      toast.error(getErrorMessage(err, t("auth.resetFailed")));
     } finally {
       setLoading(false);
     }

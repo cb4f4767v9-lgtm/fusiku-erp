@@ -1,54 +1,102 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Globe } from 'lucide-react';
-import { SUPPORTED_LANGUAGES } from '../i18n';
+import { getBaseLanguage } from '../utils/i18nLocale';
+import { persistLanguageCode } from '../utils/i18nPersist';
+import { useAuth } from '../hooks/useAuth';
+import { authApi } from '../services/api';
+import { readStoredAccessToken } from '../utils/authSession';
 
-export function LanguageSwitcher() {
-  const { i18n } = useTranslation();
+export type LanguageSwitcherPlacement = 'header' | 'sidebar';
+
+type LanguageSwitcherProps = {
+  /** `header`: dropdown opens downward; `sidebar`: opens upward (footer). */
+  placement?: LanguageSwitcherPlacement;
+  /** Optional Tailwind override for auth screens. */
+  buttonClassName?: string;
+  /** Optional Tailwind override for auth screens. */
+  labelClassName?: string;
+};
+
+export function LanguageSwitcher({ placement = 'header', buttonClassName, labelClassName }: LanguageSwitcherProps) {
+  const { t, i18n } = useTranslation();
+  const { token } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const onDocClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  const currentLang = SUPPORTED_LANGUAGES.find((l) => l.code === i18n.language) || SUPPORTED_LANGUAGES[0];
+  const languages = [
+    { code: 'en', labelKey: 'languages.en' as const },
+    { code: 'zh', labelKey: 'languages.zh' as const },
+    { code: 'ar', labelKey: 'languages.ar' as const },
+    { code: 'ur', labelKey: 'languages.ur' as const },
+  ];
 
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-    localStorage.setItem('language', lng);
+  const base = getBaseLanguage(i18n.resolvedLanguage || i18n.language);
+  const active = languages.find((l) => l.code === base);
+
+  const changeLang = (lang: string) => {
+    void i18n.changeLanguage(lang);
+    persistLanguageCode(lang);
     setOpen(false);
-    window.location.reload();
+    const hasSession = !!(token || readStoredAccessToken());
+    if (hasSession) {
+      void authApi.updatePreferences({ language: getBaseLanguage(lang) }).catch(() => {
+        /* offline / legacy */
+      });
+    }
   };
 
+  const menuDirClass = placement === 'header' ? 'lang-switcher-menu--down' : 'lang-switcher-menu--up';
+  const rootClass = ['lang-switcher', placement === 'header' ? 'lang-switcher--header' : 'lang-switcher--sidebar']
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className="language-switcher" ref={ref}>
+    <div ref={ref} className={rootClass}>
       <button
         type="button"
-        className="language-switcher-trigger"
-        onClick={() => setOpen(!open)}
+        className={buttonClassName || 'lang-switcher-btn'}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
         aria-expanded={open}
-        aria-haspopup="true"
-        title={currentLang.name}
+        aria-label={t('languages.menuAria')}
+        title={t('languages.chooseLanguage')}
       >
-        <Globe size={18} />
-        <span>{currentLang.name}</span>
+        {placement === 'header' ? <Globe size={16} strokeWidth={2} aria-hidden /> : null}
+        <span className={labelClassName || 'lang-switcher-btn__label'}>{active ? t(active.labelKey) : t('languages.en')}</span>
       </button>
-      {open && (
-        <div className="language-switcher-dropdown">
-          {SUPPORTED_LANGUAGES.map(({ code, name }) => (
-            <button key={code} type="button" className={`language-switcher-item ${i18n.language === code ? 'active' : ''}`} onClick={() => changeLanguage(code)}>
-              {name}
-            </button>
-          ))}
+
+      {open ? (
+        <div className={`lang-switcher-menu ${menuDirClass}`} role="menu" aria-label={t('languages.menuAria')}>
+          {languages.map((l) => {
+            const isActive = l.code === base;
+
+            return (
+              <button
+                key={l.code}
+                type="button"
+                role="menuitem"
+                className={`lang-switcher-item ${isActive ? 'active' : ''}`}
+                onClick={() => changeLang(l.code)}
+              >
+                <span>{t(l.labelKey)}</span>
+                {isActive ? <span className="lang-switcher-item__mark">{t('languages.selectedMark')}</span> : null}
+              </button>
+            );
+          })}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

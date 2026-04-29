@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { refurbishApi, usersApi, aiApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, X, Sparkles } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
 
 export function RefurbishingPage() {
   const { t } = useTranslation();
@@ -41,7 +43,7 @@ export function RefurbishingPage() {
       setForm({ incomingDevice: '', partsUsed: '', laborCost: '', finalCondition: 'A', technicianId: '', notes: '' });
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -56,12 +58,16 @@ export function RefurbishingPage() {
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">{t('refurbishing.title')}</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}><Plus size={18} /> {t('refurbishing.addJob')}</button>
-      </div>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader
+        title={t('refurbishing.title')}
+        actions={
+          <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={18} /> {t('refurbishing.addJob')}
+          </button>
+        }
+      />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
@@ -92,7 +98,7 @@ export function RefurbishingPage() {
             {jobs.length === 0 && <tr><td colSpan={7}>{t('refurbishing.noJobs')}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -129,6 +135,6 @@ export function RefurbishingPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

@@ -4,6 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import { suppliersApi, importApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Upload, Pencil, Trash2, Eye } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
+import { formatNumberForUi } from '../utils/formatting';
+
+function formatContactTypeLabel(input: string) {
+  const v = String(input || '').trim().toLowerCase();
+  if (v === 'whatsapp') return 'WhatsApp';
+  if (v === 'wechat') return 'WeChat';
+  if (v === 'facebook') return 'Facebook';
+  if (v === 'we chat') return 'WeChat';
+  if (v === 'whats app') return 'WhatsApp';
+  return input || '';
+}
 
 export function SuppliersPage() {
   const { t } = useTranslation();
@@ -33,7 +46,7 @@ export function SuppliersPage() {
       toast.success(t('suppliers.supplierDeleted'));
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -46,33 +59,35 @@ export function SuppliersPage() {
       setShowImport(false);
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('suppliers.importFailed'));
+      toast.error(getErrorMessage(err, t('suppliers.importFailed')));
     }
     e.target.value = '';
   };
 
   return (
-    <div className="page erp-list-page">
-      <div className="erp-page-header">
-        <div />
-        <div className="erp-header-actions">
-          <input
-            type="text"
-            className="erp-search"
-            placeholder={t('suppliers.searchPlaceholder')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button className="btn btn-secondary btn-erp" onClick={() => setShowImport(true)}>
-            <Upload size={16} /> {t('common.import')}
-          </button>
-          <button className="btn btn-primary btn-erp" onClick={() => navigate('/suppliers/new')}>
-            <Plus size={16} /> {t('suppliers.addSupplier')}
-          </button>
-        </div>
-      </div>
+    <PageLayout className="page erp-list-page">
+      <PageHeader
+        title={t('suppliers.title')}
+        actions={
+          <>
+            <input
+              type="text"
+              className="erp-search"
+              placeholder={t('suppliers.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button type="button" className="btn btn-secondary btn-erp" onClick={() => setShowImport(true)}>
+              <Upload size={16} /> {t('common.import')}
+            </button>
+            <button type="button" className="btn btn-primary btn-erp" onClick={() => navigate('/suppliers/new')}>
+              <Plus size={16} /> {t('suppliers.addSupplier')}
+            </button>
+          </>
+        }
+      />
 
-      <div className="table-container">
+      <TableWrapper>
         <table className="data-table erp-table-compact">
           <thead>
             <tr>
@@ -80,7 +95,7 @@ export function SuppliersPage() {
               <th>{t('suppliers.country')}</th>
               <th>{t('suppliers.city')}</th>
               <th>{t('suppliers.contacts')}</th>
-              <th>{t('suppliers.availableBalance')} / {t('suppliers.blockedBalance')}</th>
+              <th>Advance Paid / Blocked Amount</th>
               <th>{t('common.actions')}</th>
             </tr>
           </thead>
@@ -90,9 +105,10 @@ export function SuppliersPage() {
                 <td>{s.name}</td>
                 <td>{s.country || '—'}</td>
                 <td>{s.city || '—'}</td>
-                <td>{(s.contacts || []).map((c: any) => `${c.contactType}: ${c.value}`).join('; ') || '—'}</td>
+                <td>{(s.contacts || []).map((c: any) => `${formatContactTypeLabel(c.contactType)}: ${c.value}`).join('; ') || '—'}</td>
                 <td>
-                  <span>{Number(s.availableBalance ?? 0).toLocaleString()}</span> / <span>{Number(s.blockedBalance ?? 0).toLocaleString()}</span>
+                  <span>{formatNumberForUi(Number(s.availableBalance ?? 0), { maximumFractionDigits: 2 })}</span> /{' '}
+                  <span>{formatNumberForUi(Number(s.blockedBalance ?? 0), { maximumFractionDigits: 2 })}</span>
                 </td>
                 <td>
                   <button className="btn btn-sm" onClick={() => navigate(`/suppliers/${s.id}`)} title={t('common.view')}>
@@ -110,7 +126,7 @@ export function SuppliersPage() {
             {filtered.length === 0 && <tr><td colSpan={6}>{t('suppliers.noSuppliers')}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
 
       {showImport && (
         <div className="modal-overlay" onClick={() => setShowImport(false)}>
@@ -124,6 +140,6 @@ export function SuppliersPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

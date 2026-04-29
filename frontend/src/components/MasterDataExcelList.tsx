@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { masterDataApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 const LANG_COLUMN_MAP: Record<string, string> = {
   en: 'name',
@@ -99,7 +100,7 @@ export function MasterDataExcelList({ config, brands }: { config: ExcelListConfi
       resetForm();
       load();
     } catch (err: any) {
-      const msg = err.response?.data?.error || t('common.failed');
+      const msg = getErrorMessage(err, t('common.failed'));
       toast.error(msg === 'Item already exists.' ? t('masterData.itemExists') : msg);
     }
   };
@@ -122,15 +123,15 @@ export function MasterDataExcelList({ config, brands }: { config: ExcelListConfi
       toast.success(t('common.delete'));
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
   const renderCell = (row: any, key: string) => {
     if (config.renderCell) return config.renderCell(row, key);
-    if (key === 'brand' && row.brand) return row.brand.name;
+    if (key === 'brand' && row.brand) return row.brand.displayName ?? row.brand.name;
     if (key === 'label' && config.entity === 'storageSizes') return row.label || `${row.sizeGb} GB`;
-    return row[key] ?? '—';
+    return row.displayName ?? row[key] ?? '—';
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -171,7 +172,7 @@ export function MasterDataExcelList({ config, brands }: { config: ExcelListConfi
             >
               <option value="">{t('masterData.allBrands')}</option>
               {brands.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
+                <option key={b.id} value={b.id}>{b.displayName ?? b.name}</option>
               ))}
             </select>
           )}
@@ -227,7 +228,7 @@ export function MasterDataExcelList({ config, brands }: { config: ExcelListConfi
           <div className="modal modal-compact modal-excel" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{editingId ? t('common.edit') : t(config.addKey)}</h3>
-              <button type="button" onClick={resetForm} aria-label="Close"><X size={16} /></button>
+              <button type="button" onClick={resetForm} aria-label={t('common.close')}><X size={16} /></button>
             </div>
             <form onSubmit={handleSubmit} className="modal-form">
               {displayFormFields.map((field) => (
@@ -240,7 +241,7 @@ export function MasterDataExcelList({ config, brands }: { config: ExcelListConfi
                       required
                     >
                       <option value="">{t('common.select')}</option>
-                      {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      {brands.map((b) => <option key={b.id} value={b.id}>{b.displayName ?? b.name}</option>)}
                     </select>
                   ) : (
                     <input

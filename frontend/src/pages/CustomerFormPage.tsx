@@ -3,15 +3,36 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { customersApi, locationsApi, uploadApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, QrCode, X } from 'lucide-react';
+import { Plus, Trash2, QrCode, X, User, MapPin, MessageCircle, Wallet } from 'lucide-react';
 import { CountrySearchSelect } from '../components/CountrySearchSelect';
 import { locationCache } from '../utils/locationCache';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout } from '../components/design-system';
+import { getBackendOrigin } from '../config/appConfig';
 
-const CONTACT_TYPES = ['phone', 'whatsapp', 'wechat', 'email', 'other'] as const;
+const CONTACT_TYPES = ['Mobile', 'Landline', 'WhatsApp', 'WeChat', 'Facebook'] as const;
 const QR_ACCEPT = 'image/png,image/jpeg,image/jpg,image/webp';
 const QR_MAX_SIZE = 2 * 1024 * 1024;
 
 type CustomerContact = { id?: string; contactType: string; value: string; qrCodeUrl?: string };
+
+function contactTypeKey(ct: string) {
+  return String(ct || '').trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function normalizeContactType(input: string): (typeof CONTACT_TYPES)[number] {
+  const v = String(input || '').trim().toLowerCase();
+  if (v === 'mobile') return 'Mobile';
+  if (v === 'landline') return 'Landline';
+  if (v === 'phone') return 'Mobile';
+  if (v === 'whatsapp') return 'WhatsApp';
+  if (v === 'wechat') return 'WeChat';
+  if (v === 'facebook') return 'Facebook';
+  if (v === 'whats app') return 'WhatsApp';
+  if (v === 'we chat') return 'WeChat';
+  if (v === 'fb') return 'Facebook';
+  return 'Mobile';
+}
 
 export function CustomerFormPage() {
   const { t } = useTranslation();
@@ -28,28 +49,17 @@ export function CustomerFormPage() {
   const [form, setForm] = useState({
     name: '',
     email: '',
+    phone: '',
     country: '',
     province: '',
     city: '',
     address: '',
-    openingBalance: 0,
-    balanceType: 'debit' as 'debit' | 'credit',
-    paymentMethod: 'cash' as string,
-    moneyStatus: 'available' as string,
+    advanceReceived: 0,
+    creditBalance: 0,
+    blockedAmount: 0,
+    status: 'available' as 'available' | 'blocked',
     contacts: [] as CustomerContact[]
   });
-
-  const PAYMENT_METHODS = [
-    { value: 'cash', key: 'paymentCash' },
-    { value: 'bank', key: 'paymentBank' },
-    { value: 'alipay', key: 'paymentAliPay' },
-    { value: 'wechat', key: 'paymentWeChat' },
-    { value: 'transfer', key: 'paymentTransfer' }
-  ] as const;
-  const MONEY_STATUSES = [
-    { value: 'available', key: 'statusAvailable' },
-    { value: 'blocked', key: 'statusBlocked' }
-  ] as const;
 
   const loadCountries = useCallback(async () => {
     if (locationCache.countries) {
@@ -74,18 +84,22 @@ export function CustomerFormPage() {
     if (id) {
       customersApi.getById(id).then((r) => {
         const c = r.data;
+        const opening = Number(c.openingBalance) || 0;
+        const balType = String(c.balanceType || 'debit');
+        const status = (c.moneyStatus === 'blocked' ? 'blocked' : 'available') as 'available' | 'blocked';
         setForm({
           name: c.name,
           email: c.email || '',
+          phone: c.phone || '',
           country: c.country || '',
           province: c.province || '',
           city: c.city || '',
           address: c.address || '',
-          openingBalance: Number(c.openingBalance) || 0,
-          balanceType: (c.balanceType || 'debit') as 'debit' | 'credit',
-          paymentMethod: c.paymentMethod || 'cash',
-          moneyStatus: c.moneyStatus || 'available',
-          contacts: (c.contacts || []).map((x: any) => ({ id: x.id, contactType: x.contactType === 'alipay' ? 'other' : x.contactType, value: x.value, qrCodeUrl: x.qrCodeUrl || '' }))
+          advanceReceived: status === 'available' && balType !== 'credit' ? opening : 0,
+          creditBalance: status === 'available' && balType === 'credit' ? opening : 0,
+          blockedAmount: status === 'blocked' ? opening : 0,
+          status,
+          contacts: (c.contacts || []).map((x: any) => ({ id: x.id, contactType: normalizeContactType(x.contactType), value: x.value, qrCodeUrl: x.qrCodeUrl || '' }))
         });
       }).catch(() => navigate('/customers'));
     }
@@ -126,10 +140,7 @@ export function CustomerFormPage() {
     }).catch(() => setCities([]));
   }, [form.country, form.province]);
 
-  const getContactTypeLabel = (type: string) =>
-    t(`suppliers.contactType${type === 'other' ? 'Other' : type.charAt(0).toUpperCase() + type.slice(1)}`);
-
-  const addContact = () => setForm((f) => ({ ...f, contacts: [...f.contacts, { contactType: 'phone', value: '', qrCodeUrl: '' }] }));
+  const addContact = () => setForm((f) => ({ ...f, contacts: [...f.contacts, { contactType: 'Mobile', value: '', qrCodeUrl: '' }] }));
   const removeContact = (idx: number) => setForm((f) => ({ ...f, contacts: f.contacts.filter((_, i) => i !== idx) }));
   const updateContact = (idx: number, field: keyof CustomerContact, value: string) =>
     setForm((f) => ({ ...f, contacts: f.contacts.map((c, i) => (i === idx ? { ...c, [field]: value } : c)) }));
@@ -146,7 +157,7 @@ export function CustomerFormPage() {
     }
     try {
       const { data } = await uploadApi.uploadQr(file);
-      const base = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '') || window.location.origin;
+      const base = getBackendOrigin() || window.location.origin;
       const url = data.url?.startsWith('/') ? base + data.url : data.url || '';
       updateContact(idx, 'qrCodeUrl', url);
       toast.success(t('common.save'));
@@ -163,18 +174,32 @@ export function CustomerFormPage() {
     }
     setLoading(true);
     try {
+      const status = form.status;
+      const blockedAmount = Number(form.blockedAmount) || 0;
+      const creditBalance = Number(form.creditBalance) || 0;
+      const advanceReceived = Number(form.advanceReceived) || 0;
+      const openingBalance =
+        status === 'blocked'
+          ? blockedAmount
+          : creditBalance > 0
+            ? creditBalance
+            : advanceReceived;
+      const balanceType = status === 'blocked' ? 'debit' : (creditBalance > 0 ? 'credit' : 'debit');
+
       const payload = {
         name: form.name.trim(),
         email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
         country: form.country || undefined,
         province: form.province || undefined,
         city: form.city || undefined,
         address: form.address.trim() || undefined,
-        openingBalance: Number(form.openingBalance) || 0,
-        balanceType: form.balanceType,
-        paymentMethod: form.paymentMethod || undefined,
-        moneyStatus: form.moneyStatus || undefined,
-        contacts: form.contacts.filter((c) => c.value.trim()).map((c) => ({ contactType: c.contactType, value: c.value.trim(), qrCodeUrl: c.qrCodeUrl || undefined }))
+        openingBalance: Number(openingBalance) || 0,
+        balanceType,
+        moneyStatus: status,
+        contacts: form.contacts
+          .filter((c) => c.value.trim())
+          .map((c) => ({ contactType: normalizeContactType(c.contactType), value: c.value.trim(), qrCodeUrl: c.qrCodeUrl || undefined }))
       };
       if (isEdit) {
         await customersApi.update(id!, payload);
@@ -185,14 +210,14 @@ export function CustomerFormPage() {
       }
       navigate('/customers');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page erp-form-page erp-form-compact">
+    <PageLayout className="page erp-form-page erp-form-compact">
       <div className="erp-form-header">
         <div />
         <div className="erp-form-actions">
@@ -202,22 +227,26 @@ export function CustomerFormPage() {
       </div>
 
       <form id="customer-form" onSubmit={handleSubmit} className="erp-form-sections">
-        <section className="erp-section erp-section-compact">
-          <h3>{t('erp.basicInformation')}</h3>
+        <section className="erp-section erp-section-compact mb-6">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><User size={16} /> {t('erp.basicInformation')}</h3>
           <div className="erp-field-grid erp-field-grid-compact">
             <div className="erp-field-row">
               <label>{t('customers.name')} *</label>
               <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="erp-input-compact" />
             </div>
             <div className="erp-field-row">
-              <label>{t('suppliers.contactTypeEmail')}</label>
+              <label>{t('common.email')}</label>
               <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="erp-input-compact" />
+            </div>
+            <div className="erp-field-row">
+              <label>{t('common.phone')}</label>
+              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="erp-input-compact" />
             </div>
           </div>
         </section>
 
-        <section className="erp-section erp-section-compact">
-          <h3>{t('suppliers.address')}</h3>
+        <section className="erp-section erp-section-compact mb-6">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MapPin size={16} /> {t('erp.address')}</h3>
           <div className="erp-field-grid erp-field-grid-compact">
             <div className="erp-field-row">
               <label htmlFor="customer-country-select">{t('suppliers.country')}</label>
@@ -256,9 +285,9 @@ export function CustomerFormPage() {
           </div>
         </section>
 
-        <section className="erp-section erp-section-compact">
+        <section className="erp-section erp-section-compact mb-6">
           <div className="erp-section-header">
-            <h3>{t('suppliers.contacts')}</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><MessageCircle size={16} /> {t('erp.contacts')}</h3>
             <button type="button" className="btn btn-sm btn-erp" onClick={addContact}><Plus size={14} /> {t('suppliers.addContact')}</button>
           </div>
           <table className="erp-table erp-table-compact erp-table-contacts">
@@ -276,7 +305,9 @@ export function CustomerFormPage() {
                   <td>
                     <select value={c.contactType} onChange={(e) => updateContact(idx, 'contactType', e.target.value)} className="erp-input-compact">
                       {CONTACT_TYPES.map((ct) => (
-                        <option key={ct} value={ct}>{getContactTypeLabel(ct)}</option>
+                        <option key={ct} value={ct}>
+                          {t(`contactTypes.${contactTypeKey(ct)}`, ct)}
+                        </option>
                       ))}
                     </select>
                   </td>
@@ -310,33 +341,25 @@ export function CustomerFormPage() {
         </section>
 
         <section className="erp-section erp-section-compact">
-          <h3>{t('erp.openingBalance')}</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} /> {t('erp.financial')}</h3>
           <div className="erp-field-grid erp-field-grid-compact">
             <div className="erp-field-row">
-              <label>{t('erp.openingBalance')}</label>
-              <input type="number" step="0.01" value={form.openingBalance} onChange={(e) => setForm((f) => ({ ...f, openingBalance: Number(e.target.value) || 0 }))} className="erp-input-compact" />
+              <label>{t('erp.advance_received')}</label>
+              <input type="number" step="0.01" min={0} value={form.advanceReceived} onChange={(e) => setForm((f) => ({ ...f, advanceReceived: Number(e.target.value) || 0 }))} className="erp-input-compact" />
             </div>
             <div className="erp-field-row">
-              <label>{t('erp.balanceType')}</label>
-              <select value={form.balanceType} onChange={(e) => setForm((f) => ({ ...f, balanceType: e.target.value as 'debit' | 'credit' }))} className="erp-input-compact">
-                <option value="debit">{t('erp.deposit')} ({t('erp.depositDesc')})</option>
-                <option value="credit">{t('erp.credit')} ({t('erp.creditDesc')})</option>
-              </select>
+              <label>{t('erp.credit_balance')}</label>
+              <input type="number" step="0.01" min={0} value={form.creditBalance} onChange={(e) => setForm((f) => ({ ...f, creditBalance: Number(e.target.value) || 0 }))} className="erp-input-compact" />
             </div>
             <div className="erp-field-row">
-              <label>{t('erp.paymentMethod')}</label>
-              <select value={form.paymentMethod} onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value }))} className="erp-input-compact">
-                {PAYMENT_METHODS.map((pm) => (
-                  <option key={pm.value} value={pm.value}>{t(`erp.${pm.key}`)}</option>
-                ))}
-              </select>
+              <label>{t('erp.blocked_amount')}</label>
+              <input type="number" step="0.01" min={0} value={form.blockedAmount} onChange={(e) => setForm((f) => ({ ...f, blockedAmount: Number(e.target.value) || 0 }))} className="erp-input-compact" />
             </div>
             <div className="erp-field-row">
-              <label>{t('erp.moneyStatus')}</label>
-              <select value={form.moneyStatus} onChange={(e) => setForm((f) => ({ ...f, moneyStatus: e.target.value }))} className="erp-input-compact">
-                {MONEY_STATUSES.map((ms) => (
-                  <option key={ms.value} value={ms.value}>{t(`erp.${ms.key}`)}</option>
-                ))}
+              <label>{t('common.status')}</label>
+              <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'available' | 'blocked' }))} className="erp-input-compact">
+                <option value="available">{t('common.active')}</option>
+                <option value="blocked">{t('common.blocked')}</option>
               </select>
             </div>
           </div>
@@ -356,6 +379,6 @@ export function CustomerFormPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

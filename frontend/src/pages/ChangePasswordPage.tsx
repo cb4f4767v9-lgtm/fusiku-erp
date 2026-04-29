@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { authApi } from '../services/api';
 import toast from 'react-hot-toast';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader } from '../components/design-system';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -39,17 +41,17 @@ export function ChangePasswordPage() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('changePassword.updateFailed'));
+      toast.error(getErrorMessage(err, t('changePassword.updateFailed')));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('changePassword.title')}</h1>
+    <PageLayout className="page">
+      <PageHeader title={t('changePassword.title')} />
       <section className="settings-card">
-        <h2>{t('changePassword.updateYourPassword')}</h2>
+        <h2 className="ds-h2">{t('changePassword.updateYourPassword')}</h2>
         <form onSubmit={handleSubmit} className="change-password-form">
           <div className="form-row form-row-vertical">
             <label htmlFor="current-password">{t('changePassword.currentPassword')}</label>
@@ -97,6 +99,6 @@ export function ChangePasswordPage() {
           </div>
         </form>
       </section>
-    </div>
+    </PageLayout>
   );
 }

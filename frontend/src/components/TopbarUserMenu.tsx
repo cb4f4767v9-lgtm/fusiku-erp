@@ -12,13 +12,21 @@ export function TopbarUserMenu() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     const handleClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
+
     document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -27,49 +35,48 @@ export function TopbarUserMenu() {
     navigate('/login');
   };
 
-  const displayName = user?.name || user?.role || 'User';
+  const displayName = user?.name || user?.role || t('common.user');
 
   return (
-    <div className="topbar-user-menu" ref={ref}>
+    <div ref={ref} className="topbar-user-wrap">
       <button
         type="button"
+        onClick={() => setOpen((prev) => !prev)}
         className="topbar-user-trigger"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-        aria-haspopup="true"
       >
-        <span className="topbar-user-name">{displayName}</span>
-        <ChevronDown size={16} className="topbar-user-chevron" />
+        <span>{displayName}</span>
+        <ChevronDown size={16} />
       </button>
+
       {open && (
-        <div className="topbar-user-dropdown">
+        <div className="topbar-user-dropdown-panel">
           <Link
             to="/settings"
-            className="topbar-user-dropdown-item"
             onClick={() => setOpen(false)}
           >
             <User size={16} />
             <span>{t('auth.profile')}</span>
           </Link>
+
           <Link
             to="/change-password"
-            className="topbar-user-dropdown-item"
             onClick={() => setOpen(false)}
           >
             <Key size={16} />
             <span>{t('auth.changePassword')}</span>
           </Link>
+
           <Link
             to="/settings"
-            className="topbar-user-dropdown-item"
             onClick={() => setOpen(false)}
           >
             <Settings size={16} />
             <span>{t('nav.settings')}</span>
           </Link>
+
           <button
             type="button"
-            className="topbar-user-dropdown-item topbar-user-dropdown-logout"
+            className="topbar-user-logout"
             onClick={handleLogout}
           >
             <LogOut size={16} />

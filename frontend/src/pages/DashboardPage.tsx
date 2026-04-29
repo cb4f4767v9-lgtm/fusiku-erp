@@ -1,201 +1,518 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import '../utils/chartJsRegister';
 import { Bar } from 'react-chartjs-2';
-import { reportsApi, stockAlertsApi, repairsApi, refurbishApi } from '../services/api';
-import {
-  Package,
-  DollarSign,
-  TrendingUp,
-  Wrench,
-  RefreshCw,
-  AlertTriangle,
-  Box,
-  CheckCircle,
-  Truck
-} from 'lucide-react';
+import { reportsApi, repairsApi, refurbishApi } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { DollarSign, ClipboardList } from 'lucide-react';
+import { useBranding } from '../contexts/BrandingContext';
+import { getTrialCalendarDaysRemaining, getTrialUiState } from '../utils/billingUi';
+import { getBillingMailtoProHref } from '../config/billingContact';
+import { EmptyState, PageLayout, PageHeader, ErrorState } from '../components/design-system';
+import { DashboardSkeleton } from '../components/PageStates';
+import { persistDesktopCache } from '../offline/desktopCache';
+import { formatDateForUi } from '../utils/formatting';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+const POST_SIGNUP_WELCOME_KEY = 'fusiku_post_signup_welcome';
+/** Matches GET /reports/monthly-revenue monthly buckets (not a rolling 30-day window). */
+const REVENUE_CHART_MONTHS = 6;
 
 export function DashboardPage() {
   const { t } = useTranslation();
-  const [data, setData] = useState<any>(null);
+  useAuth();
+  const { companyName } = useBranding();
+  const { selectedCurrency, ledgerBaseCurrency, convert, formatMoney } = useCurrency();
+  /** `null` = summary not loaded yet or failed; object = loaded (may be empty). */
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  /** True only when GET /reports/dashboard rejects (not empty payload). */
+  const [dashboardSummaryFailed, setDashboardSummaryFailed] = useState(false);
   const [monthlyRevenue, setMonthlyRevenue] = useState<any[]>([]);
-  const [topModels, setTopModels] = useState<any[]>([]);
+  const [, setTopModels] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
-  const [repairs, setRepairs] = useState<any[]>([]);
-  const [refurbishJobs, setRefurbishJobs] = useState<any[]>([]);
+  const [, setRepairCounts] = useState({ pending: 0, inProgress: 0 });
+  const [, setRefurbCounts] = useState({ pending: 0, inProgress: 0, completed: 0 });
   const [loading, setLoading] = useState(true);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+  const [, setTrialTick] = useState(0);
 
   useEffect(() => {
-    Promise.all([
-      reportsApi.getDashboard().then((r) => setData(r.data)).catch(() => setData(null)),
-      reportsApi.getMonthlyRevenue({ months: 1 }).then((r) => setMonthlyRevenue(r.data || [])).catch(() => setMonthlyRevenue([])),
-      reportsApi.getTopSellingModels({ limit: 5 }).then((r) => setTopModels(r.data || [])).catch(() => setTopModels([])),
-      stockAlertsApi.check().then((r) => setAlerts(r.data?.alerts || [])).catch(() => setAlerts([])),
-      repairsApi.getAll().then((r) => setRepairs(r.data || [])).catch(() => setRepairs([])),
-      refurbishApi.getAll().then((r) => setRefurbishJobs(r.data || [])).catch(() => setRefurbishJobs([]))
-    ]).finally(() => setLoading(false));
+    const id = window.setInterval(() => setTrialTick((n) => n + 1), 30 * 60 * 1000);
+    return () => window.clearInterval(id);
   }, []);
 
-  if (loading) return <div className="page-loading">{t('dashboard.loading')}</div>;
-  if (!data) return <div className="page-loading">{t('dashboard.loadFailed')}</div>;
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(POST_SIGNUP_WELCOME_KEY) === '1') {
+        sessionStorage.removeItem(POST_SIGNUP_WELCOME_KEY);
+        setShowWelcomeBanner(true);
+      }
+    } catch {
+      /* sessionStorage blocked */
+    }
+  }, []);
 
-  const kpiCards = [
-    { labelKey: 'dashboard.totalDevicesInStock', value: data.totalDevicesInStock ?? data.totalInventory ?? 0, icon: Package, color: '#4ea1ff' },
-    { labelKey: 'dashboard.totalInventoryValue', value: `$${(data.totalInventoryValue || 0).toLocaleString()}`, icon: DollarSign, color: '#a78bfa' },
-    { labelKey: 'dashboard.todaySales', value: `$${(data.todaySales ?? data.dailySales ?? 0).toLocaleString()}`, icon: DollarSign, color: '#22c55e' },
-    { labelKey: 'dashboard.repairsInProgress', value: data.repairsInProgress ?? repairs.filter((r) => r.status === 'in_progress' || r.status === 'pending').length, icon: Wrench, color: '#f59e0b' },
-    { labelKey: 'dashboard.refurbishingQueue', value: data.refurbishingQueue ?? refurbishJobs.filter((j) => j.status === 'pending' || j.status === 'in_progress').length, icon: RefreshCw, color: '#94a3b8' },
-    { labelKey: 'dashboard.monthlyProfit', value: `$${(data.monthlyProfit || 0).toLocaleString()}`, icon: TrendingUp, color: '#22c55e' }
+  const dismissWelcome = useCallback(() => setShowWelcomeBanner(false), []);
+
+  const loadDashboard = useCallback(() => {
+    setLoading(true);
+    setDashboardSummaryFailed(false);
+
+    void (async () => {
+      try {
+        const results = await Promise.allSettled([
+          reportsApi.getDashboard(),
+          reportsApi.getMonthlyRevenue({ months: REVENUE_CHART_MONTHS }),
+          reportsApi.getTopSellingModels({ limit: 5 }),
+          repairsApi.getAll(),
+          refurbishApi.getAll(),
+        ]);
+
+        const warn = (label: string, reason: unknown) => {
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.warn(`[dashboard] ${label} failed`, reason);
+          }
+        };
+
+        // [0] GET /reports/dashboard
+        const r0 = results[0];
+        if (r0.status === 'fulfilled') {
+          try {
+            const payload = (r0.value?.data ?? {}) as Record<string, unknown>;
+            setData(payload);
+            void persistDesktopCache('sales', payload);
+          } catch (e) {
+            warn('dashboard summary (parse)', e);
+            setData(null);
+            setDashboardSummaryFailed(true);
+          }
+        } else {
+          warn('dashboard summary', r0.reason);
+          setData(null);
+          setDashboardSummaryFailed(true);
+        }
+
+        // [1] GET /reports/monthly-revenue
+        const r1 = results[1];
+        if (r1.status === 'fulfilled') {
+          try {
+            const d = r1.value?.data as any;
+            setMonthlyRevenue(Array.isArray(d) ? d : d?.months ?? []);
+          } catch (e) {
+            warn('monthly revenue (parse)', e);
+            setMonthlyRevenue([]);
+          }
+        } else {
+          warn('monthly revenue', r1.reason);
+          setMonthlyRevenue([]);
+        }
+
+        // [2] GET /reports/top-selling-models
+        const r2 = results[2];
+        if (r2.status === 'fulfilled') {
+          try {
+            const d = r2.value?.data;
+            setTopModels(Array.isArray(d) ? d : []);
+          } catch (e) {
+            warn('top models (parse)', e);
+            setTopModels([]);
+          }
+        } else {
+          warn('top models', r2.reason);
+          setTopModels([]);
+        }
+
+        // Alerts are intentionally not fetched from the dashboard (avoid heavy POST endpoints).
+        setAlerts([]);
+
+        // [3] repairs (counts only — avoid keeping full arrays in memory)
+        const r3 = results[3];
+        if (r3.status === 'fulfilled') {
+          try {
+            const d = r3.value?.data;
+            if (Array.isArray(d)) {
+              let pending = 0;
+              let inProgress = 0;
+              for (const row of d) {
+                const s = (row as any)?.status;
+                if (s === 'pending') pending += 1;
+                else if (s === 'in_progress') inProgress += 1;
+              }
+              setRepairCounts({ pending, inProgress });
+            } else {
+              setRepairCounts({ pending: 0, inProgress: 0 });
+            }
+          } catch (e) {
+            warn('repairs (parse)', e);
+            setRepairCounts({ pending: 0, inProgress: 0 });
+          }
+        } else {
+          warn('repairs', r3.reason);
+          setRepairCounts({ pending: 0, inProgress: 0 });
+        }
+
+        // [4] refurbish (counts only — avoid keeping full arrays in memory)
+        const r4 = results[4];
+        if (r4.status === 'fulfilled') {
+          try {
+            const d = r4.value?.data;
+            if (Array.isArray(d)) {
+              let pending = 0;
+              let inProgress = 0;
+              let completed = 0;
+              for (const row of d) {
+                const s = (row as any)?.status;
+                if (s === 'pending') pending += 1;
+                else if (s === 'in_progress') inProgress += 1;
+                else if (s === 'completed') completed += 1;
+              }
+              setRefurbCounts({ pending, inProgress, completed });
+            } else {
+              setRefurbCounts({ pending: 0, inProgress: 0, completed: 0 });
+            }
+          } catch (e) {
+            warn('refurbish (parse)', e);
+            setRefurbCounts({ pending: 0, inProgress: 0, completed: 0 });
+          }
+        } else {
+          warn('refurbish', r4.reason);
+          setRefurbCounts({ pending: 0, inProgress: 0, completed: 0 });
+        }
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('[dashboard] unexpected load error', e);
+        }
+        setData(null);
+        setDashboardSummaryFailed(true);
+        setMonthlyRevenue([]);
+        setTopModels([]);
+        setAlerts([]);
+        setRepairCounts({ pending: 0, inProgress: 0 });
+        setRefurbCounts({ pending: 0, inProgress: 0, completed: 0 });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    loadDashboard();
+    const onRefresh = () => loadDashboard();
+    window.addEventListener('fusiku-dashboard-refresh', onRefresh);
+    return () => window.removeEventListener('fusiku-dashboard-refresh', onRefresh);
+  }, [loadDashboard]);
+
+  if (loading) {
+    return (
+      <PageLayout className="page dashboard">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', padding: 24 }}>
+          <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
+          <DashboardSkeleton />
+        </div>
+      </PageLayout>
+    );
+  }
+
+  const safeData = (data ?? {}) as Record<string, any>;
+  const showLoadFailed = dashboardSummaryFailed;
+  const trialState = getTrialUiState();
+  const trialDays = getTrialCalendarDaysRemaining();
+
+  const trialCountdownLabel =
+    trialDays === null || trialState !== 'active'
+      ? null
+      : trialDays <= 0
+        ? t('billing.trialEndsToday')
+        : trialDays === 1
+          ? t('billing.trialEndsOneDay')
+          : t('billing.trialEndsInDays', { count: trialDays });
+
+  const money = (amount: any) =>
+    formatMoney(convert(Number(amount || 0), ledgerBaseCurrency, selectedCurrency), selectedCurrency);
+
+  const lowStockAlertActive = alerts.length > 0 || Number(safeData.lowStockAlerts ?? 0) > 0;
+  const monthNetProfitVal = Number(safeData.companyNetProfitMonth ?? 0);
+  const negativeProfitAlertActive = monthNetProfitVal < 0;
+
+  const riskTone: 'ok' | 'warn' | 'danger' = negativeProfitAlertActive
+    ? 'danger'
+    : lowStockAlertActive
+      ? 'warn'
+      : 'ok';
+
+  /** Business snapshot — lifetime / totals (4). */
+  const primaryKpis = [
+    { labelKey: 'dashboard.totalSales', value: money(safeData.totalSales ?? 0), tone: 'sales' as const },
+    { labelKey: 'dashboard.totalProfit', value: money(safeData.totalProfit ?? 0), tone: 'profit' as const },
+    { labelKey: 'dashboard.inventoryUnits', value: safeData.totalDevicesInStock ?? safeData.totalInventory ?? 0, tone: 'inventory' as const },
+    { labelKey: 'dashboard.repairsInProgress', value: safeData.repairsInProgress ?? 0, tone: 'neutral' as const },
   ];
 
-  const underRepair = repairs.filter((r) => r.status === 'in_progress').length;
-  const waitingParts = repairs.filter((r) => r.status === 'pending').length + refurbishJobs.filter((j) => j.status === 'pending').length;
-  const qualityCheck = refurbishJobs.filter((j) => j.status === 'in_progress').length;
-  const readyToSell = refurbishJobs.filter((j) => j.status === 'completed').length;
-
-  const pipelineStages = [
-    { labelKey: 'dashboard.underRepair', value: underRepair, icon: Wrench, color: '#f59e0b' },
-    { labelKey: 'dashboard.waitingForParts', value: waitingParts, icon: Box, color: '#94a3b8' },
-    { labelKey: 'dashboard.qualityCheck', value: qualityCheck, icon: CheckCircle, color: '#4ea1ff' },
-    { labelKey: 'dashboard.readyToSell', value: readyToSell, icon: Truck, color: '#22c55e' }
-  ];
+  const monthlyRevenueSorted = [...monthlyRevenue].sort((a, b) =>
+    String(a.month || a.date || a.label || '').localeCompare(String(b.month || b.date || b.label || ''))
+  );
 
   const chartData = {
-    labels: monthlyRevenue.map((r) => r.month || r.date || r.label || ''),
-    datasets: [{
-      label: t('dashboard.amount'),
-      data: monthlyRevenue.map((r) => r.revenue ?? r.amount ?? r.total ?? 0),
-      backgroundColor: 'rgba(78, 161, 255, 0.6)',
-      borderColor: '#4ea1ff',
-      borderWidth: 1
-    }]
+    labels: monthlyRevenueSorted.map((r) => r.month || r.date || r.label || ''),
+    datasets: [
+      {
+        label: t('reports.revenue'),
+        data: monthlyRevenueSorted.map((r) =>
+          convert(Number(r.revenue ?? r.amount ?? r.total ?? 0), ledgerBaseCurrency, selectedCurrency)
+        ),
+        backgroundColor: 'rgba(37, 99, 235, 0.55)',
+        borderColor: '#2563eb',
+        borderWidth: 1,
+      },
+    ],
   };
 
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false }
+      legend: { display: false },
     },
     scales: {
-      y: { beginAtZero: true }
-    }
+      x: {
+        grid: { display: false },
+        ticks: { color: '#6b7280', maxRotation: 45, minRotation: 0, font: { size: 11 } },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: 'rgba(15, 23, 42, 0.06)' },
+        ticks: { color: '#6b7280', font: { size: 11 } },
+      },
+    },
   };
 
-  return (
-    <div className="page dashboard">
-      <div className="dashboard-container">
-        <div className="page-header dashboard-header">
-          <div>
-            <h1>{t('dashboard.title')}</h1>
-            <p className="page-header-subtitle">{t('dashboard.subtitle')}</p>
-          </div>
-        </div>
+  const hasAnyMeaningfulData =
+    Number(safeData.totalSales ?? 0) > 0 ||
+    Number(safeData.totalProfit ?? 0) > 0 ||
+    Number(safeData.totalDevicesInStock ?? safeData.totalInventory ?? 0) > 0 ||
+    (monthlyRevenueSorted.length ?? 0) > 0 ||
+    ((safeData.recentSales || []) as any[]).length > 0;
 
-        {/* 1. KPI Cards */}
-        <div className="dashboard-kpi-grid">
-        {kpiCards.map(({ labelKey, value, icon: Icon, color }) => (
-          <div key={labelKey} className="stat-card" style={{ '--card-accent': color } as React.CSSProperties}>
-            <Icon size={24} style={{ color }} />
-            <div>
-              <span className="stat-value">{value}</span>
-              <span className="stat-label">{t(labelKey)}</span>
+  const isFirstTime = !hasAnyMeaningfulData;
+  const isDemoCompany = String(companyName || '').toLowerCase().includes('demo');
+
+  return (
+    <PageLayout className="page dashboard">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
+
+        {showWelcomeBanner && (
+          <div className="dashboard-welcome-banner" role="status">
+            <p className="dashboard-welcome-banner__text">{t('dashboard.welcomeFusiku')}</p>
+            <button type="button" className="dashboard-welcome-banner__dismiss" onClick={dismissWelcome}>
+              {t('common.close')}
+            </button>
+          </div>
+        )}
+        {trialState === 'active' && trialCountdownLabel && (
+          <div className="dashboard-trial-strip" role="status">
+            <div className="dashboard-trial-strip__main">
+              <span className="dashboard-trial-strip__dot" aria-hidden />
+              <span className="dashboard-trial-strip__label">{t('billing.trialActive')}</span>
+            </div>
+            <p className="dashboard-trial-strip__countdown">{trialCountdownLabel}</p>
+          </div>
+        )}
+        {trialState === 'expired' && (
+          <div className="dashboard-trial-expired" role="alert">
+            <h2 className="dashboard-trial-expired__title">{t('billing.trialExpiredTitle')}</h2>
+            <p className="dashboard-trial-expired__body">{t('billing.trialExpiredBody')}</p>
+            <div className="dashboard-trial-expired__actions">
+              <Link to="/settings#billing-plans-section" className="btn btn-primary">
+                {t('billing.trialExpiredCta')}
+              </Link>
+              <a className="btn btn-secondary" href={getBillingMailtoProHref()}>
+                {t('billing.contactForPro')}
+              </a>
             </div>
           </div>
-        ))}
-        </div>
-
-        {/* 2. Sales Chart + Inventory Insights */}
-        <div className="dashboard-grid-2">
-        <div className="card chart-container">
-          <h3>{t('dashboard.salesLast30Days')}</h3>
-          <div className="dashboard-chart">
-            {monthlyRevenue.length > 0 ? (
-              <Bar data={chartData} options={chartOptions} />
-            ) : (
-              <p className="dashboard-empty">{t('common.noData')}</p>
+        )}
+        <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
+        {!showLoadFailed && (safeData.reportingNotice || safeData.dataQuality?.hasLegacyCost) && (
+          <div className="card dashboard-financial-notice" role="status">
+            {safeData.reportingNotice && <p className="dashboard-financial-notice__line">{safeData.reportingNotice}</p>}
+            {safeData.dataQuality?.hasLegacyCost && (
+              <p className="dashboard-financial-notice__line muted">
+                <span className="dashboard-financial-notice__badge" aria-hidden>
+                  !
+                </span>{' '}
+                Legacy cost in use — some inventory rows lack auditable USD cost.
+              </p>
             )}
           </div>
-        </div>
+        )}
+        {showLoadFailed && (
+          <ErrorState
+            className="dashboard-load-failed"
+            message={t('dashboard.loadFailed')}
+            hint={t('dashboard.loadFailedHint')}
+            onRetry={loadDashboard}
+            retryLabel={t('dashboard.retryLoad')}
+          />
+        )}
 
-        <div className="card">
-          <h3>{t('dashboard.inventoryInsights')}</h3>
-          <div className="dashboard-insights">
-            <div>
-              <h4>{t('dashboard.topSellingModels')}</h4>
-              <ul className="dashboard-list">
-                {topModels.length > 0 ? (
-                  topModels.map((m, i) => (
-                    <li key={i}>{m.brand} {m.model} — {m.count} {t('dashboard.sold')}</li>
-                  ))
-                ) : (
-                  <li className="muted">{t('common.noData')}</li>
-                )}
-              </ul>
-            </div>
-            <div>
-              <h4>{t('dashboard.lowStockAlerts')}</h4>
-              <ul className="dashboard-list">
-                {alerts.length > 0 ? (
-                  alerts.slice(0, 5).map((a) => (
-                    <li key={a.id} className="alert-item">
-                      <AlertTriangle size={14} /> {a.message} ({a.count} {t('dashboard.inStock')})
-                    </li>
-                  ))
-                ) : (
-                  <li className="muted">{t('common.noData')}</li>
-                )}
-              </ul>
-            </div>
-          </div>
-        </div>
-        </div>
-
-        {/* 3. Repair Pipeline + Recent Sales */}
-        <div className="dashboard-grid-2">
-        <div className="card">
-          <h3>{t('dashboard.repairPipeline')}</h3>
-          <div className="dashboard-pipeline">
-            {pipelineStages.map(({ labelKey, value, icon: Icon, color }) => (
-              <div key={labelKey} className="pipeline-stage">
-                <Icon size={20} style={{ color }} />
-                <span className="pipeline-label">{t(labelKey)}</span>
-                <span className="pipeline-value">{value}</span>
+        {!showLoadFailed && (
+          <>
+            {isDemoCompany ? (
+              <div className="dashboard-demo-badge" role="status">
+                {t('dashboard.demoCompany', { defaultValue: 'Demo Company' })}
               </div>
-            ))}
-          </div>
-        </div>
+            ) : null}
 
-        <div className="card">
-          <h3>{t('dashboard.recentSales')}</h3>
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{t('dashboard.date')}</th>
-                  <th>{t('dashboard.amount')}</th>
-                  <th>{t('dashboard.profit')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.recentSales?.slice(0, 8).map((sale: any) => (
-                  <tr key={sale.id}>
-                    <td>{new Date(sale.createdAt).toLocaleDateString()}</td>
-                    <td>${Number(sale.totalAmount).toLocaleString()}</td>
-                    <td>${Number(sale.profit).toLocaleString()}</td>
-                  </tr>
+            {isFirstTime ? (
+              <section className="section card dashboard-first-time" aria-label={t('dashboard.welcome', { defaultValue: 'Welcome' })}>
+                <div className="dashboard-first-time__head">
+                  <h2 className="dashboard-first-time__title">
+                    {t('dashboard.welcomeTitle', { defaultValue: 'Welcome — you’re ready to run your business' })}
+                  </h2>
+                  <p className="dashboard-first-time__hint muted">
+                    {t('dashboard.welcomeHint', {
+                      defaultValue:
+                        'Track every phone by IMEI, manage branches, see profit live, and work in multiple currencies — with automatic insights built in.',
+                    })}
+                  </p>
+                </div>
+                <div className="dashboard-first-time__actions">
+                  <Link to="/inventory?new=1" className="btn btn-primary">
+                    {t('dashboard.addProduct', { defaultValue: 'Add product' })}
+                  </Link>
+                  <Link to="/pos" className="btn btn-secondary">
+                    {t('dashboard.createSale', { defaultValue: 'Create sale' })}
+                  </Link>
+                </div>
+              </section>
+            ) : null}
+
+            <section className="section card dashboard-hero" aria-label={t('dashboard.ariaExecutiveKpis')}>
+              <div className="dashboard-hero__head">
+                <div className="dashboard-hero__title-wrap">
+                  <p className="dashboard-hero__kicker">{t('dashboard.executive.title')}</p>
+                  <h2 className="dashboard-hero__title">{t('dashboard.executive.hint')}</h2>
+                </div>
+                <div className={`dashboard-risk-badge dashboard-risk-badge--${riskTone}`} role="status">
+                  {riskTone === 'danger'
+                    ? t('dashboard.riskHigh')
+                    : riskTone === 'warn'
+                      ? t('dashboard.riskMedium')
+                      : t('dashboard.riskLow')}
+                </div>
+              </div>
+
+              <div
+                className="dashboard-hero__kpis"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: 16,
+                }}
+              >
+                {primaryKpis.map(({ labelKey, value, tone }) => (
+                  <div
+                    key={labelKey}
+                    className={`card dashboard-mini-kpi dashboard-mini-kpi--${tone} ds-has-tooltip`}
+                    tabIndex={0}
+                    data-tooltip={t('dashboard.kpiTooltip', {
+                      defaultValue:
+                        'Totals shown are lifetime values from your reports, converted to your selected display currency where applicable.',
+                    })}
+                    style={{ padding: 20 }}
+                  >
+                    <span className="dashboard-mini-kpi__label">{t(labelKey)}</span>
+                    <span className="dashboard-mini-kpi__value" style={{ fontSize: 24, fontWeight: 600 }}>
+                      {value}
+                    </span>
+                  </div>
                 ))}
-                {(!data.recentSales || data.recentSales.length === 0) && (
-                  <tr><td colSpan={3}>{t('dashboard.noRecentSales')}</td></tr>
+              </div>
+            </section>
+
+            <section className="section card chart-container dashboard-chart-card" aria-label={t('dashboard.revenueByMonth', { count: REVENUE_CHART_MONTHS })}>
+              <div className="dashboard-chart-card__head">
+                <h3
+                  className="dashboard-chart-card__title ds-has-tooltip"
+                  tabIndex={0}
+                  data-tooltip={t('dashboard.revenueChartTooltip', {
+                    defaultValue:
+                      'Revenue is grouped by month (not a rolling 30 days) and converted to your selected display currency.',
+                  })}
+                >
+                  {t('dashboard.revenueByMonth', { count: REVENUE_CHART_MONTHS })}
+                </h3>
+                <p className="dashboard-chart-card__subtitle muted">{t('dashboard.revenueChartSubtitle')}</p>
+              </div>
+              <div className="dashboard-chart dashboard-chart--primary">
+                {monthlyRevenueSorted.length > 0 ? (
+                  <Bar data={chartData} options={chartOptions} />
+                ) : (
+                  <div className="dashboard-empty-state premium" role="status">
+                    <p className="dashboard-empty-state__text">{t('dashboard.emptyRevenueChart')}</p>
+                    <span className="dashboard-empty-state__hint">Start by adding purchases or sales</span>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        </div>
+              </div>
+            </section>
+
+            <section className="section card dashboard-activity" aria-label={t('dashboard.recentSales')}>
+              <div className="dashboard-section-head">
+                <h3 className="dashboard-section-head__title">{t('dashboard.recentSales')}</h3>
+                <div className="dashboard-activity__actions">
+                  <Link to="/reports" className="btn btn-secondary">
+                    {t('nav.reports')}
+                  </Link>
+                </div>
+              </div>
+              {(safeData.recentSales || []).length ? (
+                <div className="table-container">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>{t('reports.date')}</th>
+                        <th className="num">{t('reports.amount')}</th>
+                        <th className="num">{t('reports.profit')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(safeData.recentSales || []).slice(0, 8).map((sale: any, saleIdx: number) => {
+                        const raw = sale.createdAt ? new Date(sale.createdAt) : null;
+                        const dateLabel = raw && !Number.isNaN(raw.getTime()) ? formatDateForUi(raw) : '—';
+                        const rowKey =
+                          sale?.id != null && String(sale.id).length > 0 ? String(sale.id) : `recent-sale-${saleIdx}`;
+                        return (
+                          <tr key={rowKey}>
+                            <td>{dateLabel}</td>
+                            <td className="num">{money(sale.totalAmount)}</td>
+                            <td className="num">{money(sale.profit ?? 0)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState
+                  icon={<ClipboardList />}
+                  title={t('dashboard.noRecentSales', { defaultValue: 'No sales yet' })}
+                  description={t('dashboard.noRecentSalesHint', {
+                    defaultValue: 'Create your first sale in POS — it will appear here instantly.',
+                  })}
+                  action={
+                    <Link to="/pos" className="btn btn-primary">
+                      <DollarSign size={16} /> {t('nav.pos')}
+                    </Link>
+                  }
+                />
+              )}
+            </section>
+          </>
+        )}
       </div>
-    </div>
+    </PageLayout>
   );
 }

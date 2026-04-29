@@ -1,52 +1,92 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { companyApi } from '../services/api';
 import toast from 'react-hot-toast';
+import { useBranding } from '../contexts/BrandingContext';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, LoadingSkeleton } from '../components/design-system';
 
 export function CompanySettingsPage() {
   const { t } = useTranslation();
+  const { profile } = useBranding();
+  const canHidePoweredBy = Boolean(profile?.saas?.features?.removeBranding);
   const [settings, setSettings] = useState<any>(null);
-  const [form, setForm] = useState({ currency: 'USD', timezone: 'UTC', taxRate: 0, invoicePrefix: 'INV' });
+  const [form, setForm] = useState({
+    baseCurrency: 'USD',
+    timezone: 'UTC',
+    taxRate: 0,
+    invoicePrefix: 'INV',
+    spreadBps: 0,
+    hidePoweredByBranding: false
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    companyApi.getSettings()
-      .then((r) => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await companyApi.getSettings();
+        if (cancelled) return;
         setSettings(r.data);
+        const base = r.data?.baseCurrency || r.data?.currency || 'USD';
         setForm({
-          currency: r.data?.currency || 'USD',
+          baseCurrency: base,
           timezone: r.data?.timezone || 'UTC',
           taxRate: Number(r.data?.taxRate || 0),
-          invoicePrefix: r.data?.invoicePrefix || 'INV'
+          invoicePrefix: r.data?.invoicePrefix || 'INV',
+          spreadBps: Math.floor(Number((r.data as { spreadBps?: number })?.spreadBps)) || 0,
+          hidePoweredByBranding: Boolean((r.data as { hidePoweredByBranding?: boolean })?.hidePoweredByBranding)
         });
-      })
-      .catch(() => setSettings(null))
-      .finally(() => setLoading(false));
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('Settings API failed', error);
+        }
+        if (!cancelled) setSettings(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await companyApi.updateSettings(form);
+      // Keep legacy `currency` in sync server-side (server also normalizes).
+      await companyApi.updateSettings({ ...form, currency: form.baseCurrency });
+      window.dispatchEvent(new Event('fusiku-branding-refresh'));
       toast.success(t('company.settingsSaved'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
-  if (loading) return <div className="page-loading">{t('common.loading')}</div>;
+  if (loading) {
+    return (
+      <PageLayout className="page">
+        <PageHeader title={t('company.title')} />
+        <LoadingSkeleton variant="dashboard" />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('company.title')}</h1>
+    <PageLayout className="page">
+      <PageHeader title={t('company.title')} />
       <form onSubmit={handleSubmit} className="modal-form" style={{ maxWidth: 400 }}>
         <label>
-          {t('company.currency')}
-          <select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
+          {t('company.baseCurrency')}
+          <select
+            value={form.baseCurrency}
+            onChange={(e) => setForm((f) => ({ ...f, baseCurrency: e.target.value }))}
+          >
             <option value="USD">USD</option>
-            <option value="EUR">EUR</option>
-            <option value="GBP">GBP</option>
-            <option value="NGN">NGN</option>
+            <option value="PKR">PKR</option>
+            <option value="AED">AED</option>
+            <option value="CNY">CNY</option>
           </select>
         </label>
         <label>
@@ -74,8 +114,35 @@ export function CompanySettingsPage() {
             onChange={(e) => setForm((f) => ({ ...f, invoicePrefix: e.target.value }))}
           />
         </label>
+        <label>
+          {t('company.spreadBps')}
+          <input
+            type="number"
+            min={0}
+            max={50000}
+            step={1}
+            value={form.spreadBps}
+            onChange={(e) => setForm((f) => ({ ...f, spreadBps: Math.floor(Number(e.target.value)) || 0 }))}
+          />
+          <span style={{ display: 'block', fontSize: '0.85rem', marginTop: 4, opacity: 0.75 }}>
+            {t('company.spreadBpsHint')}
+          </span>
+        </label>
+        {canHidePoweredBy ? (
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={form.hidePoweredByBranding}
+              onChange={(e) => setForm((f) => ({ ...f, hidePoweredByBranding: e.target.checked }))}
+            />
+            <span>{t('company.hidePoweredBy')}</span>
+          </label>
+        ) : null}
+        {canHidePoweredBy ? (
+          <p style={{ fontSize: '0.85rem', opacity: 0.75, marginTop: 4 }}>{t('company.hidePoweredByHelp')}</p>
+        ) : null}
         <button type="submit" className="btn btn-primary">{t('company.saveSettings')}</button>
       </form>
-    </div>
+    </PageLayout>
   );
 }

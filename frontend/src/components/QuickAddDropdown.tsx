@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { masterDataApi, suppliersApi, branchesApi, customersApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, X } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 type QuickAddType = 'supplier' | 'customer' | 'branch' | 'brand' | 'phoneModel' | 'storage' | 'color' | 'quality' | 'screenQuality' | 'fault' | 'screenType' | 'category';
 
@@ -29,26 +30,26 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
 
   const getAddTitle = () => {
     const titles: Record<QuickAddType, string> = {
-      supplier: 'Add New Supplier',
-      customer: 'Add New Customer',
-      branch: 'Add New Branch',
-      brand: 'Add New Brand',
-      phoneModel: 'Add New Model',
-      storage: 'Add New Storage',
-      color: 'Add New Color',
-      quality: 'Add New Quality',
-      screenQuality: 'Add New Screen Quality',
-      fault: 'Add New Fault',
-      screenType: 'Add New Screen Type',
-      category: 'Add New Category'
+      supplier: t('quickAdd.supplier'),
+      customer: t('quickAdd.customer'),
+      branch: t('quickAdd.branch'),
+      brand: t('quickAdd.brand'),
+      phoneModel: t('quickAdd.phoneModel'),
+      storage: t('quickAdd.storage'),
+      color: t('quickAdd.color'),
+      quality: t('quickAdd.quality'),
+      screenQuality: t('quickAdd.screenQuality'),
+      fault: t('quickAdd.fault'),
+      screenType: t('quickAdd.screenType'),
+      category: t('quickAdd.category')
     };
-    return t(`quickAdd.${type}`, titles[type]);
+    return titles[type];
   };
 
   const handleSave = async () => {
     try {
       if (type === 'supplier') {
-        const contacts = form.phone ? [{ contactType: 'phone', value: form.phone }] : [];
+        const contacts = form.phone ? [{ contactType: 'Mobile', value: form.phone }] : [];
         const { data } = await suppliersApi.create({
           name: form.name || '',
           country: form.country || 'US',
@@ -119,7 +120,7 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
       setShowAdd(false);
       setForm({});
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -132,7 +133,7 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
             <input value={form.name || ''} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('quickAdd.namePlaceholder')} required />
           </div>
           <div className="quick-add-field">
-            <label>{t('suppliers.phone', 'Phone')}</label>
+            <label>{t('common.phone')}</label>
             <input value={form.phone || ''} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder={t('quickAdd.phonePlaceholder')} />
           </div>
         </>
@@ -146,7 +147,7 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
             <input value={form.name || ''} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={t('quickAdd.branchNamePlaceholder')} required />
           </div>
           <div className="quick-add-field">
-            <label>{t('suppliers.phone')}</label>
+            <label>{t('common.phone')}</label>
             <input value={form.phone || ''} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder={t('quickAdd.phonePlaceholder')} />
           </div>
         </>
@@ -159,7 +160,11 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
             <label>{t('masterData.brand')}</label>
             <select value={form.brandId || ''} onChange={(e) => setForm((f) => ({ ...f, brandId: e.target.value }))} required>
               <option value="">{t('common.select')}</option>
-              {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {brands.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
             </select>
           </div>
           <div className="quick-add-field">
@@ -207,7 +212,7 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
           onChange={(e) => onChange(e.target.value)}
           {...(dataCell ? { 'data-cell': dataCell } : {})}
         >
-          <option value="">{placeholder || '—'}</option>
+          <option value="">{placeholder || t('common.selectPlaceholder')}</option>
           {options.map((o) => (
             <option key={o.id} value={o.id}>{o.label}</option>
           ))}
@@ -221,7 +226,7 @@ export function QuickAddDropdown({ type, value, onChange, options, onRefresh, br
           <div className="modal modal-quick-add" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>{getAddTitle()}</h3>
-              <button type="button" onClick={() => setShowAdd(false)} aria-label="Close"><X size={18} /></button>
+              <button type="button" onClick={() => setShowAdd(false)} aria-label={t('common.close')}><X size={18} /></button>
             </div>
             <div className="modal-form">
               {renderAddForm()}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { phoneDatabaseApi } from '../services/api';
 import { ChevronRight } from 'lucide-react';
+import { PageLayout, PageHeader } from '../components/design-system';
 
 export function PhoneDatabasePage() {
   const { t } = useTranslation();
@@ -35,9 +36,8 @@ export function PhoneDatabasePage() {
   }, [selectedModel]);
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('phoneDatabase.title')}</h1>
-      <p className="page-subtitle">{t('phoneDatabase.subtitle')}</p>
+    <PageLayout className="page">
+      <PageHeader title={t('phoneDatabase.title')} subtitle={t('phoneDatabase.subtitle')} />
       <div className="phone-db-layout">
         <div className="phone-db-panel">
           <h3>{t('phoneDatabase.brands')}</h3>
@@ -48,7 +48,7 @@ export function PhoneDatabasePage() {
                 className={selectedBrand === b.id ? 'selected' : ''}
                 onClick={() => setSelectedBrand(b.id)}
               >
-                {b.name}
+                {b.displayName ?? b.name}
                 <ChevronRight size={16} />
               </li>
             ))}
@@ -63,7 +63,7 @@ export function PhoneDatabasePage() {
                 className={selectedModel === m.id ? 'selected' : ''}
                 onClick={() => setSelectedModel(m.id)}
               >
-                {m.name}
+                {m.displayName ?? m.name}
                 <ChevronRight size={16} />
               </li>
             ))}
@@ -82,6 +82,6 @@ export function PhoneDatabasePage() {
           </ul>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 }

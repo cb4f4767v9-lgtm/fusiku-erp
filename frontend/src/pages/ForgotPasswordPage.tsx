@@ -2,8 +2,9 @@ import Brand from "../components/Brand";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { authApi } from "../services/api";
+import { authApi, MissingCompanyIdError } from "../services/api";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../utils/getErrorMessage";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 export function ForgotPasswordPage() {
@@ -23,8 +24,12 @@ export function ForgotPasswordPage() {
       await authApi.forgotPassword(email);
       setSent(true);
       toast.success(t("auth.resetLinkSent"));
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || t("common.somethingWentWrong"));
+    } catch (err: unknown) {
+      if (err instanceof MissingCompanyIdError) {
+        toast.error(t("login.missingCompanyId"));
+        return;
+      }
+      toast.error(getErrorMessage(err, t("common.somethingWentWrong")));
     } finally {
       setLoading(false);
     }

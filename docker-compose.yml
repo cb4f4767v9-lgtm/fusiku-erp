@@ -39,14 +39,37 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_URL: postgresql://fusiku:fusiku_secret@postgres:5432/fusiku_erp
+      REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
       JWT_EXPIRES: ${JWT_EXPIRES:-7d}
+      USE_BULLMQ: "1"
+      EXPOSE_PROM_METRICS: "1"
     volumes:
       - backend_uploads:/app/uploads
     ports:
       - "3001:3001"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fusiku-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://fusiku:fusiku_secret@postgres:5432/fusiku_erp
+      REDIS_URL: redis://redis:6379
+      USE_BULLMQ: "1"
+    command: ["sh", "-c", "node dist/worker-entry.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   frontend:

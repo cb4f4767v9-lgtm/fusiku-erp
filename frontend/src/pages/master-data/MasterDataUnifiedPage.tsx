@@ -4,6 +4,7 @@ import { masterDataApi } from '../../services/api';
 import { MasterDataExcelList } from '../../components/MasterDataExcelList';
 import type { ExcelListConfig } from '../../components/MasterDataExcelList';
 import { ChevronDown } from 'lucide-react';
+import { PageLayout, PageHeader } from '../../components/design-system';
 
 const DROPDOWN_OPTIONS: { value: string; config: ExcelListConfig }[] = [
   {
@@ -155,28 +156,33 @@ export function MasterDataUnifiedPage() {
   const current = DROPDOWN_OPTIONS.find((o) => o.value === selected) || DROPDOWN_OPTIONS[0];
 
   return (
-    <div className="page page-master-data-excel">
-      <div className="page-header page-header-excel">
-        <h1>{t('masterData.title')}</h1>
-        <div className="master-data-dropdown-wrap">
-          <select
-            id="master-data-select"
-            className="master-data-dropdown"
-            value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-            aria-label={t('masterData.title')}
-          >
-            {DROPDOWN_OPTIONS.map(({ value, config }) => (
-              <option key={value} value={value}>{t(config.titleKey)}</option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="master-data-dropdown-chevron" aria-hidden />
-        </div>
-      </div>
+    <PageLayout className="page page-master-data-excel">
+      <PageHeader
+        className="page-header-excel"
+        title={t('masterData.title')}
+        actions={
+          <div className="master-data-dropdown-wrap">
+            <select
+              id="master-data-select"
+              className="master-data-dropdown"
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              aria-label={t('masterData.title')}
+            >
+              {DROPDOWN_OPTIONS.map(({ value, config }) => (
+                <option key={value} value={value}>
+                  {t(config.titleKey)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="master-data-dropdown-chevron" aria-hidden />
+          </div>
+        }
+      />
       <MasterDataExcelList
         config={current.config}
         brands={current.config.entity === 'phoneModels' ? brands : undefined}
       />
-    </div>
+    </PageLayout>
   );
 }

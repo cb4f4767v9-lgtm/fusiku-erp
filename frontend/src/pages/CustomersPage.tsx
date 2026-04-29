@@ -4,6 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { customersApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
+import { formatNumberForUi } from '../utils/formatting';
+
+function formatCustomerBalance(c: any) {
+  const opening = Number(c?.openingBalance || 0);
+  const status = String(c?.moneyStatus || 'available');
+  const balType = String(c?.balanceType || 'debit');
+  const num = formatNumberForUi(opening, { maximumFractionDigits: 2 });
+
+  if (status === 'blocked') return `${num} (Blocked Amount)`;
+  if (balType === 'credit') return `${num} (Credit Balance)`;
+  return `${num} (Advance)`;
+}
 
 export function CustomersPage() {
   const { t } = useTranslation();
@@ -32,29 +46,31 @@ export function CustomersPage() {
       toast.success(t('customers.customerDeleted'));
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('customers.deleteFailed'));
+      toast.error(getErrorMessage(err, t('customers.deleteFailed')));
     }
   };
 
   return (
-    <div className="page erp-list-page">
-      <div className="erp-page-header">
-        <div />
-        <div className="erp-header-actions">
-          <input
-            type="text"
-            className="erp-search"
-            placeholder={t('customers.searchPlaceholder')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button className="btn btn-primary btn-erp" onClick={() => navigate('/customers/new')}>
-            <Plus size={16} /> {t('customers.newCustomer')}
-          </button>
-        </div>
-      </div>
+    <PageLayout className="page erp-list-page">
+      <PageHeader
+        title={t('customers.title')}
+        actions={
+          <>
+            <input
+              type="text"
+              className="erp-search"
+              placeholder={t('customers.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button type="button" className="btn btn-primary btn-erp" onClick={() => navigate('/customers/new')}>
+              <Plus size={16} /> {t('customers.newCustomer')}
+            </button>
+          </>
+        }
+      />
 
-      <div className="table-container">
+      <TableWrapper>
         <table className="data-table erp-table-compact">
           <thead>
             <tr>
@@ -69,9 +85,9 @@ export function CustomersPage() {
             {filtered.map((c) => (
               <tr key={c.id}>
                 <td>{c.name}</td>
-                <td>{(c.contacts || []).find((x: any) => x.contactType === 'phone')?.value || c.phone || '—'}</td>
+                <td>{c.phone || '—'}</td>
                 <td>{c.city || '—'}</td>
-                <td>{Number(c.openingBalance || 0).toLocaleString()} ({c.balanceType === 'credit' ? t('erp.credit') : t('erp.deposit')})</td>
+                <td>{formatCustomerBalance(c)}</td>
                 <td>
                   <button className="btn btn-sm" onClick={() => navigate(`/customers/${c.id}/edit`)} title={t('common.edit')}>
                     <Pencil size={14} />
@@ -85,7 +101,7 @@ export function CustomersPage() {
             {filtered.length === 0 && <tr><td colSpan={5}>{t('customers.noCustomers')}</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
+      </TableWrapper>
+    </PageLayout>
   );
 }

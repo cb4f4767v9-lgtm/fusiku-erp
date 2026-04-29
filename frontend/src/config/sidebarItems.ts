@@ -1,13 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
-  Package,
-  ShoppingCart,
   Users,
   CreditCard,
+  Receipt,
+  DollarSign,
   Wrench,
   RefreshCw,
-  Truck,
+  Wallet,
   Database,
   FileText,
   BarChart3,
@@ -16,178 +16,233 @@ import {
   Activity,
   Gauge,
   Sparkles,
-  Code,
-  Building2
+  FileSpreadsheet,
+  Boxes,
+  ArrowRightLeft,
 } from 'lucide-react';
 
 export interface SidebarItem {
-  name: string;
   path: string;
   labelKey: string;
+  permissionKey: string;
   keywords: string[];
   icon: LucideIcon;
 }
 
-export const sidebarItems: SidebarItem[] = [
+export type SidebarSection = {
+  id: string;
+  labelKey: string;
+  items: SidebarItem[];
+};
+
+export const sidebarSections: SidebarSection[] = [
   {
-    name: 'Dashboard',
-    path: '/',
-    labelKey: 'nav.dashboard',
-    keywords: ['dashboard', 'home', 'overview', 'main'],
-    icon: LayoutDashboard
+    id: 'dashboard',
+    labelKey: 'sidebar.sections.dashboard',
+    items: [
+      {
+        path: '/',
+        labelKey: 'nav.dashboard',
+        permissionKey: 'dashboard.view',
+        keywords: ['dashboard', 'home', '仪表盘', 'ڈیش بورڈ'],
+        icon: LayoutDashboard,
+      },
+    ],
   },
+
   {
-    name: 'AI Business Intelligence',
-    path: '/ai-business-intelligence',
-    labelKey: 'nav.aiBusinessIntelligence',
-    keywords: ['ai', 'business intelligence', 'forecast', 'prediction'],
-    icon: Sparkles
+    id: 'sales',
+    labelKey: 'sidebar.sections.sales',
+    items: [
+      {
+        path: '/pos',
+        labelKey: 'nav.pos',
+        permissionKey: 'sales.pos',
+        keywords: ['pos', 'sale', 'billing', '收银', 'فروخت'],
+        icon: CreditCard,
+      },
+      {
+        path: '/wholesale-sales',
+        labelKey: 'nav.wholesaleSales',
+        permissionKey: 'sales.pos',
+        keywords: ['wholesale', 'sales', 'orders', 'invoice', 'bulk', 'جملہ', 'تھوک'],
+        icon: Receipt,
+      },
+      {
+        path: '/customers',
+        labelKey: 'nav.customers',
+        permissionKey: 'customers.view',
+        keywords: ['customer', 'client', '客户', 'کسٹمر'],
+        icon: Users,
+      },
+    ],
   },
+
   {
-    name: 'Inventory',
-    path: '/inventory',
-    labelKey: 'nav.inventory',
-    keywords: ['inventory', 'stock', 'products', 'phones'],
-    icon: Package
+    id: 'purchase',
+    labelKey: 'sidebar.sections.purchase',
+    items: [
+      {
+        path: '/purchases',
+        labelKey: 'nav.purchases',
+        permissionKey: 'purchases.view',
+        keywords: ['purchase', 'buy', '采购', 'خرید'],
+        icon: FileSpreadsheet,
+      },
+      {
+        path: '/suppliers',
+        labelKey: 'nav.suppliers',
+        permissionKey: 'suppliers.view',
+        keywords: ['supplier', 'vendor', '供应商', 'سپلائر'],
+        icon: Users,
+      },
+    ],
   },
+
   {
-    name: 'Inventory History',
-    path: '/inventory-history',
-    labelKey: 'nav.inventoryHistory',
-    keywords: ['inventory', 'history', 'stock', 'movement'],
-    icon: History
+    id: 'inventory',
+    labelKey: 'sidebar.sections.inventory',
+    items: [
+      {
+        path: '/inventory',
+        labelKey: 'nav.inventory',
+        permissionKey: 'inventory.view',
+        keywords: ['inventory', 'stock', 'imei', '库存', 'اسٹاک'],
+        icon: Boxes,
+      },
+      {
+        path: '/transfers',
+        labelKey: 'nav.transfers',
+        permissionKey: 'inventory.transfers',
+        keywords: ['transfer', '调拨', 'منتقلی'],
+        icon: ArrowRightLeft,
+      },
+      {
+        path: '/inventory-history',
+        labelKey: 'nav.inventoryHistory',
+        permissionKey: 'inventory.history',
+        keywords: ['history', 'movement', '历史', 'تاریخ'],
+        icon: History,
+      },
+    ],
   },
+
   {
-    name: 'Purchases',
-    path: '/purchases',
-    labelKey: 'nav.purchases',
-    keywords: ['purchase', 'buy', 'buying', 'supplier order'],
-    icon: ShoppingCart
+    id: 'operations',
+    labelKey: 'sidebar.sections.operations',
+    items: [
+      {
+        path: '/repairs',
+        labelKey: 'nav.repairs',
+        permissionKey: 'operations.repairs',
+        keywords: ['repair', 'fix', '维修', 'مرمت'],
+        icon: Wrench,
+      },
+      {
+        path: '/refurbishing',
+        labelKey: 'nav.refurbishing',
+        permissionKey: 'operations.refurbish',
+        keywords: ['refurbish', '翻新', 'ریفربش'],
+        icon: RefreshCw,
+      },
+      {
+        path: '/phone-database',
+        labelKey: 'nav.phoneDatabase',
+        permissionKey: 'operations.phoneDatabase',
+        keywords: ['phone', 'database', '手机', 'فون'],
+        icon: Database,
+      },
+    ],
   },
+
   {
-    name: 'Suppliers',
-    path: '/suppliers',
-    labelKey: 'nav.suppliers',
-    keywords: ['supplier', 'vendor', 'factory', 'china supplier'],
-    icon: Users
+    id: 'finance',
+    labelKey: 'sidebar.sections.finance',
+    items: [
+      {
+        path: '/expenses',
+        labelKey: 'nav.expenses',
+        permissionKey: 'finance.expenses',
+        keywords: ['expense', 'cost', '费用', 'خرچ'],
+        icon: Wallet,
+      },
+      {
+        path: '/currency',
+        labelKey: 'nav.currency',
+        permissionKey: 'finance.currency',
+        keywords: ['currency', 'exchange', '货币', 'کرنسی'],
+        icon: DollarSign,
+      },
+    ],
   },
+
   {
-    name: 'Customers',
-    path: '/customers',
-    labelKey: 'nav.customers',
-    keywords: ['customer', 'client', 'buyer'],
-    icon: Users
+    id: 'ai',
+    labelKey: 'sidebar.sections.ai',
+    items: [
+      {
+        path: '/ai-assistant',
+        labelKey: 'nav.aiAssistant',
+        permissionKey: 'ai.assistant',
+        keywords: ['assistant', 'chat', '助手', 'اسسٹنٹ'],
+        icon: Sparkles,
+      },
+      {
+        path: '/ai-business-intelligence',
+        labelKey: 'nav.aiBusinessIntelligence',
+        permissionKey: 'ai.bi',
+        keywords: ['ai', 'forecast', '人工智能', 'ذہانت'],
+        icon: Sparkles,
+      },
+    ],
   },
+
   {
-    name: 'Branches',
-    path: '/branches',
-    labelKey: 'nav.branches',
-    keywords: ['branch', 'store', 'shop', 'location'],
-    icon: Building2
+    id: 'reports',
+    labelKey: 'sidebar.sections.reports',
+    items: [
+      {
+        path: '/reports',
+        labelKey: 'nav.reports',
+        permissionKey: 'reports.view',
+        keywords: ['reports', 'profit', '报表', 'رپورٹ'],
+        icon: BarChart3,
+      },
+    ],
   },
+
   {
-    name: 'POS',
-    path: '/pos',
-    labelKey: 'nav.pos',
-    keywords: ['pos', 'sale', 'sell', 'billing', 'counter'],
-    icon: CreditCard
+    id: 'system',
+    labelKey: 'sidebar.sections.system',
+    items: [
+      {
+        path: '/settings',
+        labelKey: 'nav.settings',
+        permissionKey: 'settings.app',
+        keywords: ['settings', 'system', '设置', 'سیٹنگز'],
+        icon: Settings,
+      },
+      {
+        path: '/monitoring',
+        labelKey: 'nav.monitoring',
+        permissionKey: 'monitoring.view',
+        keywords: ['monitor', 'health', '监控', 'نگرانی'],
+        icon: Gauge,
+      },
+      {
+        path: '/activity',
+        labelKey: 'nav.systemActivity',
+        permissionKey: 'logs.activity',
+        keywords: ['activity', 'audit', '活动', 'سرگرمی'],
+        icon: Activity,
+      },
+      {
+        path: '/logs',
+        labelKey: 'nav.systemLogs',
+        permissionKey: 'logs.system',
+        keywords: ['logs', '日志', 'لاگ'],
+        icon: FileText,
+      },
+    ],
   },
-  {
-    name: 'Repairs',
-    path: '/repairs',
-    labelKey: 'nav.repairs',
-    keywords: ['repair', 'fix', 'service', 'technician'],
-    icon: Wrench
-  },
-  {
-    name: 'Refurbishing',
-    path: '/refurbishing',
-    labelKey: 'nav.refurbishing',
-    keywords: ['refurbish', 'renew', 'grade'],
-    icon: RefreshCw
-  },
-  {
-    name: 'Transfers',
-    path: '/transfers',
-    labelKey: 'nav.transfers',
-    keywords: ['transfer', 'move', 'branch transfer'],
-    icon: Truck
-  },
-  {
-    name: 'Reports',
-    path: '/reports',
-    labelKey: 'nav.reports',
-    keywords: ['reports', 'analytics', 'profit', 'loss', 'sales'],
-    icon: BarChart3
-  },
-  {
-    name: 'Advanced Reports',
-    path: '/reports/advanced',
-    labelKey: 'nav.advancedReports',
-    keywords: ['reports', 'advanced', 'analytics'],
-    icon: FileText
-  },
-  {
-    name: 'Phone Database',
-    path: '/phone-database',
-    labelKey: 'nav.phoneDatabase',
-    keywords: ['phone', 'database', 'model', 'device'],
-    icon: Database
-  },
-  {
-    name: 'System Activity',
-    path: '/activity',
-    labelKey: 'nav.systemActivity',
-    keywords: ['activity', 'system', 'audit'],
-    icon: Activity
-  },
-  {
-    name: 'System Logs',
-    path: '/logs',
-    labelKey: 'nav.systemLogs',
-    keywords: ['logs', 'system', 'log'],
-    icon: FileText
-  },
-  {
-    name: 'Monitoring',
-    path: '/monitoring',
-    labelKey: 'nav.monitoring',
-    keywords: ['monitoring', 'monitor', 'health'],
-    icon: Gauge
-  },
-  {
-    name: 'Settings',
-    path: '/settings',
-    labelKey: 'nav.settings',
-    keywords: ['settings', 'config', 'system'],
-    icon: Settings
-  },
-  {
-    name: 'Master Data',
-    path: '/master-data',
-    labelKey: 'nav.masterData',
-    keywords: ['master', 'data', 'reference'],
-    icon: Database
-  },
-  {
-    name: 'Company Settings',
-    path: '/company-settings',
-    labelKey: 'nav.companySettings',
-    keywords: ['company', 'settings', 'config'],
-    icon: Settings
-  },
-  {
-    name: 'Developer Settings',
-    path: '/developer-settings',
-    labelKey: 'nav.developerSettings',
-    keywords: ['developer', 'settings', 'api'],
-    icon: Code
-  },
-  {
-    name: 'Integration Logs',
-    path: '/integration-logs',
-    labelKey: 'nav.integrationLogs',
-    keywords: ['integration', 'logs', 'api'],
-    icon: FileText
-  }
 ];

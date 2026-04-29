@@ -12,14 +12,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "types": ["vite/client"],
+    "types": ["vite/client", "vitest/globals", "node"],
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@core/*": ["src/core/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "tests", "src/tests", "vitest.config.ts"]
 }

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { activityApi } from '../services/api';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
 
 export function SystemActivityPage() {
+  const { t, i18n } = useTranslation();
   const [logs, setLogs] = useState<any[]>([]);
 
   useEffect(() => {
@@ -10,48 +13,52 @@ export function SystemActivityPage() {
 
   const actionLabel = (a: string) => {
     const map: Record<string, string> = {
-      user_login: 'User Login',
-      inventory_create: 'Inventory Created',
-      inventory_edit: 'Inventory Edited',
-      purchase_create: 'Purchase Created',
-      sale_completion: 'Sale Completed',
-      repair_create: 'Repair Created',
-      repair_completion: 'Repair Completed',
-      transfer_approval: 'Transfer Approved'
+      user_login: 'activity.actions.user_login',
+      inventory_create: 'activity.actions.inventory_create',
+      inventory_edit: 'activity.actions.inventory_edit',
+      purchase_create: 'activity.actions.purchase_create',
+      sale_completion: 'activity.actions.sale_completion',
+      repair_create: 'activity.actions.repair_create',
+      repair_completion: 'activity.actions.repair_completion',
+      transfer_approval: 'activity.actions.transfer_approval'
     };
-    return map[a] || a;
+    return t(map[a] || 'activity.actions.unknown', { action: a });
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">System Activity</h1>
-      </div>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader title={t('activity.title')} />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Time</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Entity</th>
-              <th>Entity ID</th>
+              <th>{t('activity.columns.time')}</th>
+              <th>{t('activity.columns.user')}</th>
+              <th>{t('activity.columns.action')}</th>
+              <th>{t('activity.columns.entity')}</th>
+              <th>{t('activity.columns.entityId')}</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((l) => (
               <tr key={l.id}>
-                <td>{new Date(l.timestamp).toLocaleString()}</td>
+                <td>
+                  {new Intl.DateTimeFormat(i18n.language).format(new Date(l.timestamp))}
+                </td>
                 <td>{l.user?.name || '-'}</td>
                 <td><span className="badge">{actionLabel(l.action)}</span></td>
                 <td>{l.entityType}</td>
                 <td>{l.entityId || '-'}</td>
               </tr>
             ))}
-            {logs.length === 0 && <tr><td colSpan={5}>No activity</td></tr>}
+            {logs.length === 0 && (
+              <tr>
+                <td colSpan={5}>{t('activity.noActivity')}</td>
+              </tr>
+            )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </TableWrapper>
+    </PageLayout>
   );
 }

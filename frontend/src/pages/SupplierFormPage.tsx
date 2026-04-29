@@ -1,23 +1,45 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { suppliersApi, locationsApi, uploadApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { Plus, Trash2, QrCode, X } from 'lucide-react';
+import { Plus, Trash2, QrCode, X, User, MapPin, MessageCircle, Wallet } from 'lucide-react';
 import { CountrySearchSelect } from '../components/CountrySearchSelect';
 import { locationCache } from '../utils/locationCache';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout } from '../components/design-system';
+import { getBackendOrigin } from '../config/appConfig';
 
-const CONTACT_TYPES = ['phone', 'whatsapp', 'wechat', 'email', 'other'] as const;
+const CONTACT_TYPES = ['Mobile', 'Landline', 'WhatsApp', 'WeChat', 'Facebook'] as const;
 const QR_ACCEPT = 'image/png,image/jpeg,image/jpg,image/webp';
 const QR_MAX_SIZE = 2 * 1024 * 1024;
 
 type SupplierContact = { id?: string; contactType: string; value: string; qrCodeUrl?: string };
 
+function contactTypeKey(ct: string) {
+  return String(ct || '').trim().toLowerCase().replace(/\s+/g, '');
+}
+
+function normalizeContactType(input: string): (typeof CONTACT_TYPES)[number] {
+  const v = String(input || '').trim().toLowerCase();
+  if (v === 'mobile') return 'Mobile';
+  if (v === 'landline') return 'Landline';
+  if (v === 'phone') return 'Mobile';
+  if (v === 'whatsapp') return 'WhatsApp';
+  if (v === 'wechat') return 'WeChat';
+  if (v === 'facebook') return 'Facebook';
+  if (v === 'whats app') return 'WhatsApp';
+  if (v === 'we chat') return 'WeChat';
+  if (v === 'fb') return 'Facebook';
+  return 'Mobile';
+}
+
 export function SupplierFormPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams();
-  const isEdit = !!id;
+  const location = useLocation();
+  const isEdit = Boolean(id) && location.pathname.endsWith('/edit');
 
   const [countries, setCountries] = useState<{ isoCode: string; name: string }[]>([]);
   const [provinces, setProvinces] = useState<{ isoCode: string; name: string }[]>([]);
@@ -27,17 +49,17 @@ export function SupplierFormPage() {
 
   const [form, setForm] = useState({
     name: '',
+    currency: 'USD',
     email: '',
+    phone: '',
     country: '',
     province: '',
     city: '',
     address: '',
-    openingBalance: 0,
-    balanceType: 'debit' as 'debit' | 'credit',
-    paymentMethod: 'cash' as string,
-    moneyStatus: 'available' as string,
-    availableBalance: 0,
-    blockedBalance: 0,
+    advancePaid: 0,
+    creditBalance: 0,
+    blockedAmount: 0,
+    status: 'available' as 'available' | 'blocked',
     contacts: [] as SupplierContact[]
   });
 
@@ -61,27 +83,29 @@ export function SupplierFormPage() {
   }, [loadCountries]);
 
   useEffect(() => {
-    if (id) {
+    if (isEdit && id) {
       suppliersApi.getById(id).then((r) => {
         const s = r.data;
+        const opening = Number(s.openingBalance) || 0;
+        const balType = String(s.balanceType || 'debit');
         setForm({
           name: s.name,
+          currency: String(s.currency || 'USD').trim().toUpperCase() || 'USD',
           email: s.email || '',
+          phone: s.phone || '',
           country: s.country || '',
           province: s.province || '',
           city: s.city || '',
           address: s.address || '',
-          openingBalance: Number(s.openingBalance) || 0,
-          balanceType: (s.balanceType || 'debit') as 'debit' | 'credit',
-          paymentMethod: s.paymentMethod || 'cash',
-          moneyStatus: s.moneyStatus || 'available',
-          availableBalance: s.availableBalance != null ? Number(s.availableBalance) : (s.moneyStatus === 'blocked' ? 0 : Number(s.openingBalance) || 0),
-          blockedBalance: s.blockedBalance != null ? Number(s.blockedBalance) : (s.moneyStatus === 'blocked' ? Number(s.openingBalance) || 0 : 0),
-          contacts: (s.contacts || []).map((c: any) => ({ id: c.id, contactType: c.contactType === 'alipay' ? 'other' : c.contactType, value: c.value, qrCodeUrl: c.qrCodeUrl || '' }))
+          advancePaid: Number(s.availableBalance ?? 0) || 0,
+          creditBalance: balType === 'credit' ? opening : 0,
+          blockedAmount: Number(s.blockedBalance ?? 0) || 0,
+          status: (s.moneyStatus === 'blocked' ? 'blocked' : 'available') as 'available' | 'blocked',
+          contacts: (s.contacts || []).map((c: any) => ({ id: c.id, contactType: normalizeContactType(c.contactType), value: c.value, qrCodeUrl: c.qrCodeUrl || '' }))
         });
       }).catch(() => navigate('/suppliers'));
     }
-  }, [id, navigate]);
+  }, [id, isEdit, navigate]);
 
   useEffect(() => {
     if (!form.country) {
@@ -118,10 +142,7 @@ export function SupplierFormPage() {
     }).catch(() => setCities([]));
   }, [form.country, form.province]);
 
-  const getContactTypeLabel = (type: string) =>
-    t(`suppliers.contactType${type === 'other' ? 'Other' : type.charAt(0).toUpperCase() + type.slice(1)}`);
-
-  const addContact = () => setForm((f) => ({ ...f, contacts: [...f.contacts, { contactType: 'phone', value: '', qrCodeUrl: '' }] }));
+  const addContact = () => setForm((f) => ({ ...f, contacts: [...f.contacts, { contactType: 'Mobile', value: '', qrCodeUrl: '' }] }));
   const removeContact = (idx: number) => setForm((f) => ({ ...f, contacts: f.contacts.filter((_, i) => i !== idx) }));
   const updateContact = (idx: number, field: keyof SupplierContact, value: string) =>
     setForm((f) => ({ ...f, contacts: f.contacts.map((c, i) => (i === idx ? { ...c, [field]: value } : c)) }));
@@ -138,7 +159,7 @@ export function SupplierFormPage() {
     }
     try {
       const { data } = await uploadApi.uploadQr(file);
-      const base = ((import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL || '').replace(/\/api\/?$/, '') || window.location.origin;
+      const base = getBackendOrigin() || window.location.origin;
       const url = data.url?.startsWith('/') ? base + data.url : data.url || '';
       updateContact(idx, 'qrCodeUrl', url);
       toast.success(t('common.save'));
@@ -161,19 +182,22 @@ export function SupplierFormPage() {
     try {
       const payload = {
         name: form.name.trim(),
+        currency: String(form.currency || 'USD').trim().toUpperCase() || 'USD',
         email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
         country: form.country,
         province: form.province || undefined,
         city: form.city || undefined,
         address: form.address.trim() || undefined,
-        openingBalance: Number(form.openingBalance) || 0,
-        balanceType: form.balanceType,
-        paymentMethod: form.paymentMethod || undefined,
-        moneyStatus: form.moneyStatus || undefined,
-        availableBalance: Number(form.availableBalance) || 0,
-        blockedBalance: Number(form.blockedBalance) || 0,
-        contacts: form.contacts.filter((c) => c.value.trim()).map((c) => ({
-          contactType: c.contactType,
+        openingBalance: Number(form.creditBalance) > 0 ? Number(form.creditBalance) : 0,
+        balanceType: Number(form.creditBalance) > 0 ? 'credit' : 'debit',
+        moneyStatus: form.status,
+        availableBalance: Number(form.advancePaid) || 0,
+        blockedBalance: Number(form.blockedAmount) || 0,
+        contacts: form.contacts
+          .filter((c) => c.value.trim())
+          .map((c) => ({
+          contactType: normalizeContactType(c.contactType),
           value: c.value.trim(),
           qrCodeUrl: c.qrCodeUrl || undefined
         }))
@@ -187,14 +211,14 @@ export function SupplierFormPage() {
       }
       navigate('/suppliers');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page erp-form-page erp-form-compact">
+    <PageLayout className="page erp-form-page erp-form-compact">
       <div className="erp-form-header">
         <div />
         <div className="erp-form-actions">
@@ -208,22 +232,36 @@ export function SupplierFormPage() {
       </div>
 
       <form id="supplier-form" onSubmit={handleSubmit} className="erp-form-sections">
-        <section className="erp-section erp-section-compact">
-          <h3>{t('erp.basicInformation')}</h3>
+        <section className="erp-section erp-section-compact mb-6">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><User size={16} /> {t('erp.basicInformation')}</h3>
           <div className="erp-field-grid erp-field-grid-compact">
             <div className="erp-field-row">
               <label>{t('suppliers.name')} *</label>
               <input required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="erp-input-compact" />
             </div>
             <div className="erp-field-row">
-              <label>{t('suppliers.contactTypeEmail')}</label>
+              <label>{t('nav.currency', { defaultValue: 'Currency' })}</label>
+              <input
+                value={form.currency}
+                onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value.toUpperCase() }))}
+                className="erp-input-compact"
+                maxLength={8}
+                placeholder="USD"
+              />
+            </div>
+            <div className="erp-field-row">
+              <label>{t('common.email')}</label>
               <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="erp-input-compact" />
+            </div>
+            <div className="erp-field-row">
+              <label>{t('common.phone')}</label>
+              <input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="erp-input-compact" />
             </div>
           </div>
         </section>
 
-        <section className="erp-section erp-section-compact">
-          <h3>{t('suppliers.address')}</h3>
+        <section className="erp-section erp-section-compact mb-6">
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MapPin size={16} /> {t('erp.address')}</h3>
 
           <div className="erp-field-grid erp-field-grid-compact">
 
@@ -308,9 +346,9 @@ export function SupplierFormPage() {
           </div>
         </section>
 
-        <section className="erp-section erp-section-compact">
+        <section className="erp-section erp-section-compact mb-6">
           <div className="erp-section-header">
-            <h3>{t('suppliers.contacts')}</h3>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}><MessageCircle size={16} /> {t('erp.contacts')}</h3>
             <button type="button" className="btn btn-sm btn-erp" onClick={addContact}><Plus size={14} /> {t('suppliers.addContact')}</button>
           </div>
           <table className="erp-table erp-table-compact erp-table-contacts">
@@ -328,7 +366,9 @@ export function SupplierFormPage() {
                   <td>
                     <select value={c.contactType} onChange={(e) => updateContact(idx, 'contactType', e.target.value)} className="erp-input-compact">
                       {CONTACT_TYPES.map((ct) => (
-                        <option key={ct} value={ct}>{getContactTypeLabel(ct)}</option>
+                        <option key={ct} value={ct}>
+                          {t(`contactTypes.${contactTypeKey(ct)}`, ct)}
+                        </option>
                       ))}
                     </select>
                   </td>
@@ -362,19 +402,26 @@ export function SupplierFormPage() {
         </section>
 
         <section className="erp-section erp-section-compact">
-          <h3>{t('suppliers.balanceSection')}</h3>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={16} /> {t('erp.financial')}</h3>
           <div className="erp-field-grid erp-field-grid-compact">
             <div className="erp-field-row">
-              <label>{t('suppliers.availableBalance')}</label>
-              <input type="number" step="0.01" min={0} value={form.availableBalance} onChange={(e) => setForm((f) => ({ ...f, availableBalance: Number(e.target.value) || 0 }))} className="erp-input-compact" />
+              <label>{t('erp.advance_paid')}</label>
+              <input type="number" step="0.01" min={0} value={form.advancePaid} onChange={(e) => setForm((f) => ({ ...f, advancePaid: Number(e.target.value) || 0 }))} className="erp-input-compact" />
             </div>
             <div className="erp-field-row">
-              <label>{t('suppliers.blockedBalance')}</label>
-              <input type="number" step="0.01" min={0} value={form.blockedBalance} onChange={(e) => setForm((f) => ({ ...f, blockedBalance: Number(e.target.value) || 0 }))} className="erp-input-compact" />
+              <label>{t('erp.credit_balance')}</label>
+              <input type="number" step="0.01" min={0} value={form.creditBalance} onChange={(e) => setForm((f) => ({ ...f, creditBalance: Number(e.target.value) || 0 }))} className="erp-input-compact" />
             </div>
-            <div className="erp-field-row erp-field-full">
-              <label>{t('suppliers.totalBalance')}</label>
-              <span className="erp-balance-total">{(Number(form.availableBalance) + Number(form.blockedBalance)).toLocaleString()}</span>
+            <div className="erp-field-row">
+              <label>{t('erp.blocked_amount')}</label>
+              <input type="number" step="0.01" min={0} value={form.blockedAmount} onChange={(e) => setForm((f) => ({ ...f, blockedAmount: Number(e.target.value) || 0 }))} className="erp-input-compact" />
+            </div>
+            <div className="erp-field-row">
+              <label>{t('common.status')}</label>
+              <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'available' | 'blocked' }))} className="erp-input-compact">
+                <option value="available">{t('common.active')}</option>
+                <option value="blocked">{t('common.blocked')}</option>
+              </select>
             </div>
           </div>
         </section>
@@ -393,6 +440,6 @@ export function SupplierFormPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { repairsApi, usersApi, customersApi, downloadPdf, imeiApi, aiApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, X, Download, Sparkles } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
 
 export function RepairsPage() {
   const { t } = useTranslation();
@@ -54,7 +56,7 @@ export function RepairsPage() {
       setForm({ imei: '', faultDescription: '', technicianId: '', customerId: '', repairCost: '', notes: '' });
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -69,12 +71,16 @@ export function RepairsPage() {
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1>{t('repairs.title')}</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}><Plus size={18} /> {t('repairs.addRepair')}</button>
-      </div>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader
+        title={t('repairs.title')}
+        actions={
+          <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={18} /> {t('repairs.addRepair')}
+          </button>
+        }
+      />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
@@ -106,7 +112,7 @@ export function RepairsPage() {
             {repairs.length === 0 && <tr><td colSpan={6}>{t('repairs.noRepairs')}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -152,6 +158,6 @@ export function RepairsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

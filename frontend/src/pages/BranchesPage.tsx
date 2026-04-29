@@ -4,12 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { branchesApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
 
 export function BranchesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [branches, setBranches] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(1);
 
   const load = () => branchesApi.getAll().then((r) => setBranches(r.data)).catch(() => setBranches([]));
   useEffect(() => {
@@ -29,25 +33,35 @@ export function BranchesPage() {
     );
   });
 
-  return (
-    <div className="page erp-list-page">
-      <div className="erp-page-header">
-        <div />
-        <div className="erp-header-actions">
-          <input
-            type="text"
-            className="erp-search"
-            placeholder={t('branches.searchPlaceholder')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button className="btn btn-primary btn-erp" onClick={() => navigate('/branches/new')}>
-            <Plus size={16} /> {t('settings.addBranch')}
-          </button>
-        </div>
-      </div>
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
-      <div className="table-container">
+  const pageCount = Math.max(1, Math.ceil(filtered.length / Math.max(1, pageSize)));
+  const clampedPage = Math.min(pageCount, Math.max(1, page));
+  const paged = filtered.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
+
+  return (
+    <PageLayout className="page erp-list-page">
+      <PageHeader
+        title={t('nav.branches')}
+        actions={
+          <>
+            <input
+              type="text"
+              className="erp-search"
+              placeholder={t('branches.searchPlaceholder')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <button type="button" className="btn btn-primary btn-erp" onClick={() => navigate('/branches/new')}>
+              <Plus size={16} /> {t('settings.addBranch')}
+            </button>
+          </>
+        }
+      />
+
+      <TableWrapper>
         <table className="data-table erp-table-compact">
           <thead>
             <tr>
@@ -60,7 +74,7 @@ export function BranchesPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((b) => (
+            {paged.map((b) => (
               <tr key={b.id}>
                 <td>{b.name}</td>
                 <td>{b.code || '—'}</td>
@@ -87,7 +101,7 @@ export function BranchesPage() {
                             toast.success(t('branches.branchDeleted'));
                             load();
                           })
-                          .catch((err) => toast.error(err.response?.data?.error));
+                          .catch((err) => toast.error(getErrorMessage(err, t('common.failed'))));
                     }}
                     title={t('common.delete')}
                   >
@@ -103,7 +117,34 @@ export function BranchesPage() {
             )}
           </tbody>
         </table>
-      </div>
-    </div>
+        <div className="erp-pagination" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '10px 4px' }}>
+          <div className="muted" style={{ fontSize: 13 }}>
+            {t('common.showing', { defaultValue: 'Showing' })}{' '}
+            <strong>
+              {filtered.length ? (clampedPage - 1) * pageSize + 1 : 0}–{Math.min(clampedPage * pageSize, filtered.length)}
+            </strong>{' '}
+            {t('common.of', { defaultValue: 'of' })} <strong>{filtered.length}</strong>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value) || 20)} aria-label="Page size">
+              {[10, 20, 50].map((n) => (
+                <option key={n} value={n}>
+                  {n} / {t('common.page', { defaultValue: 'page' })}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="btn btn-secondary" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={clampedPage <= 1}>
+              {t('common.prev', { defaultValue: 'Prev' })}
+            </button>
+            <span className="muted" style={{ fontSize: 13 }}>
+              {clampedPage} / {pageCount}
+            </span>
+            <button type="button" className="btn btn-secondary" onClick={() => setPage((p) => Math.min(pageCount, p + 1))} disabled={clampedPage >= pageCount}>
+              {t('common.next', { defaultValue: 'Next' })}
+            </button>
+          </div>
+        </div>
+      </TableWrapper>
+    </PageLayout>
   );
 }

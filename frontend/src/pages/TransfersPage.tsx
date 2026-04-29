@@ -3,12 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { transfersApi, branchesApi, inventoryApi, downloadPdf } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, X } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../components/design-system';
+import { useAuth } from '../hooks/useAuth';
+import { isSuperAdmin } from '../utils/permissions';
+import { formatDateForUi } from '../utils/formatting';
 
 export function TransfersPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [transfers, setTransfers] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ fromBranchId: '', toBranchId: '', transferMarginPercent: 0, inventoryIds: [] as string[] });
 
@@ -22,12 +28,18 @@ export function TransfersPage() {
   }, []);
 
   useEffect(() => {
+    if (!isSuperAdmin(user) && user?.branchId) {
+      setForm((f) => ({ ...f, fromBranchId: user.branchId!, inventoryIds: [] }));
+    }
+  }, [user?.branchId]);
+
+  useEffect(() => {
     if (form.fromBranchId) {
       inventoryApi.getAll({ branchId: form.fromBranchId, status: 'available' })
-        .then((r) => setInventory(r.data))
-        .catch(() => setInventory([]));
+        .then((r) => setInventory(r.data ?? null))
+        .catch(() => setInventory(null));
     } else {
-      setInventory([]);
+      setInventory(null);
     }
   }, [form.fromBranchId]);
 
@@ -52,7 +64,7 @@ export function TransfersPage() {
     }
     try {
       await transfersApi.create({
-        fromBranchId: form.fromBranchId,
+        fromBranchId: isSuperAdmin(user) ? form.fromBranchId : (user?.branchId || form.fromBranchId),
         toBranchId: form.toBranchId,
         transferMarginPercent: Number(form.transferMarginPercent) || 0,
         inventoryIds: form.inventoryIds
@@ -62,19 +74,21 @@ export function TransfersPage() {
       setForm({ fromBranchId: '', toBranchId: '', transferMarginPercent: 0, inventoryIds: [] });
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Transfer failed');
+      toast.error(getErrorMessage(err, 'Transfer failed'));
     }
   };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">{t('transfers.title')}</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-          <Plus size={18} /> {t('transfers.newTransfer')}
-        </button>
-      </div>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader
+        title={t('transfers.title')}
+        actions={
+          <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
+            <Plus size={18} /> {t('transfers.newTransfer')}
+          </button>
+        }
+      />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
@@ -89,7 +103,7 @@ export function TransfersPage() {
           <tbody>
             {transfers.map((tr) => (
               <tr key={tr.id}>
-                <td>{new Date(tr.createdAt).toLocaleDateString()}</td>
+                <td>{formatDateForUi(tr.createdAt)}</td>
                 <td>{tr.fromBranch?.name}</td>
                 <td>{tr.toBranch?.name}</td>
                 <td>{tr.transferItems?.length || 0}</td>
@@ -104,7 +118,7 @@ export function TransfersPage() {
                           toast.success(t('transfers.transferApproved'));
                           load();
                         } catch (err: any) {
-                          toast.error(err.response?.data?.error || 'Approve failed');
+                          toast.error(getErrorMessage(err, 'Approve failed'));
                         }
                       }}
                     >
@@ -123,7 +137,7 @@ export function TransfersPage() {
             {transfers.length === 0 && <tr><td colSpan={6}>{t('transfers.noTransfers')}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
@@ -135,6 +149,7 @@ export function TransfersPage() {
               <select
                 required
                 value={form.fromBranchId}
+                disabled={!isSuperAdmin(user)}
                 onChange={(e) => setForm((f) => ({ ...f, fromBranchId: e.target.value, inventoryIds: [] }))}
               >
                 <option value="">{t('transfers.fromBranch')}</option>
@@ -146,12 +161,12 @@ export function TransfersPage() {
                 onChange={(e) => setForm((f) => ({ ...f, toBranchId: e.target.value }))}
               >
                 <option value="">{t('transfers.toBranch')}</option>
-                {branches.filter((b) => b.id !== form.fromBranchId).map((b) => (
+                {branches.filter((b) => b.id !== (isSuperAdmin(user) ? form.fromBranchId : (user?.branchId || form.fromBranchId))).map((b) => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
               <div className="form-field">
-                <label>{t('transfers.transferMarginPercent', 'Transfer Margin %')}</label>
+                <label>{t('transfers.transferMarginPercent')}</label>
                 <input
                   type="number"
                   min={0}
@@ -163,7 +178,7 @@ export function TransfersPage() {
               </div>
               <div className="transfer-items">
                 <label>{t('transfers.selectItemsToTransfer')}</label>
-                {inventory.map((item) => (
+                {(inventory?.data || []).map((item: any) => (
                   <label key={item.id} className="transfer-item-check">
                     <input
                       type="checkbox"
@@ -173,7 +188,7 @@ export function TransfersPage() {
                     {item.imei} - {item.brand} {item.model} (${Number(item.sellingPrice).toFixed(2)})
                   </label>
                 ))}
-                {inventory.length === 0 && form.fromBranchId && <p>{t('transfers.noAvailableItems')}</p>}
+                {(inventory?.data || []).length === 0 && form.fromBranchId && <p>{t('transfers.noAvailableItems')}</p>}
               </div>
               <button type="submit" className="btn btn-primary" disabled={form.inventoryIds.length === 0}>
                 {t('transfers.createTransfer')}
@@ -182,6 +197,6 @@ export function TransfersPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

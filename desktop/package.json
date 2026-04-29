@@ -4,16 +4,22 @@
   "description": "Fusiku Desktop - Think Smart. Play Cool.",
   "main": "electron-main.js",
   "scripts": {
+    "lint": "eslint \"*.js\"",
     "dev": "electron .",
-    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false && npm --prefix .. run build:frontend && npm --prefix .. run build:backend && electron-builder"
+    "icon:generate": "node scripts/generate-icon.js",
+    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false && npm --prefix .. run build:frontend && npm --prefix .. run build:backend && npm run icon:generate && electron-builder"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "sql.js": "^1.11.0"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
   },
   "build": {
     "appId": "com.fusiku.app",
@@ -22,11 +28,14 @@
     "directories": {
       "output": "../dist"
     },
+    "asarUnpack": [
+      "**/node_modules/sql.js/dist/sql-wasm.wasm"
+    ],
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_GITHUB_USERNAME",
-        "repo": "fusiku-updates"
+        "owner": "Aakra",
+        "repo": "fusiku-erp"
       }
     ],
     "extraResources": [
@@ -47,8 +56,8 @@
         "to": "backend/prisma"
       },
       {
-        "from": "../backend/.env",
-        "to": "backend/.env"
+        "from": "runtime-config.example.json",
+        "to": "runtime-config.example.json"
       },
       {
         "from": "../frontend/dist",
@@ -80,6 +89,8 @@
       "../backend/dist/**/*",
       "electron-main.js",
       "preload.js",
+      "local-sqlite-db.js",
+      "auto-updater.js",
       "icon.ico",
       "**/*"
     ]

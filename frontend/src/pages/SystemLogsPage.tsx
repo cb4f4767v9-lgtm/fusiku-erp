@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { logsApi } from '../services/api';
+import { PageLayout, PageHeader, TableWrapper, LoadingSkeleton } from '../components/design-system';
 
 export function SystemLogsPage() {
+  const { t, i18n } = useTranslation();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,37 +15,47 @@ export function SystemLogsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="page-loading">Loading logs...</div>;
+  if (loading) {
+    return (
+      <PageLayout className="page">
+        <PageHeader title={t('logs.title')} subtitle={t('logs.subtitle')} />
+        <LoadingSkeleton rows={10} cols={5} />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="page">
-      <h1 className="page-title">System Logs</h1>
-      <p className="page-subtitle">Audit trail of system activity</p>
-      <div className="table-container">
+    <PageLayout className="page">
+      <PageHeader title={t('logs.title')} subtitle={t('logs.subtitle')} />
+      <TableWrapper>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Entity</th>
-              <th>Entity ID</th>
+              <th>{t('logs.columns.date')}</th>
+              <th>{t('logs.columns.user')}</th>
+              <th>{t('logs.columns.action')}</th>
+              <th>{t('logs.columns.entity')}</th>
+              <th>{t('logs.columns.entityId')}</th>
             </tr>
           </thead>
           <tbody>
             {logs.map((log) => (
               <tr key={log.id}>
-                <td>{new Date(log.createdAt).toLocaleString()}</td>
+                <td>{new Intl.DateTimeFormat(i18n.language).format(new Date(log.createdAt))}</td>
                 <td>{log.user?.name || '—'}</td>
                 <td>{log.action}</td>
                 <td>{log.entity}</td>
                 <td>{log.entityId || '—'}</td>
               </tr>
             ))}
-            {logs.length === 0 && <tr><td colSpan={5}>No logs</td></tr>}
+            {logs.length === 0 && (
+              <tr>
+                <td colSpan={5}>{t('logs.noLogs')}</td>
+              </tr>
+            )}
           </tbody>
         </table>
-      </div>
-    </div>
+      </TableWrapper>
+    </PageLayout>
   );
 }

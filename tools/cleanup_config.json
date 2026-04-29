@@ -1,0 +1,24 @@
+{
+  "autoDelete": [
+    "dist",
+    "build",
+    "coverage",
+    ".cache",
+    ".vite",
+    ".turbo",
+    "out",
+    "tmp",
+    "win-unpacked"
+  ],
+  "protect": [
+    "backend/src",
+    "frontend/src",
+    "backend/prisma",
+    "database",
+    "shared",
+    "scripts",
+    "tools"
+  ],
+  "deleteFilesInside": ["logs", "backend/uploads"],
+  "keepFiles": [".gitkeep"]
+}

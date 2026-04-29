@@ -24,7 +24,10 @@ function SingleSticker({ item }: { item: StickerItem }) {
           fontSize: 9
         });
       } catch (e) {
-        console.warn('Barcode render failed', e);
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('Barcode render failed', e);
+        }
       }
     }
   }, [item.barcode]);

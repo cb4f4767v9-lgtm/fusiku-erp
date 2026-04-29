@@ -70,6 +70,7 @@ export function buildApplication() {
   );
 
   app.use(cors(getHttpCorsOptions()));
+  app.options('*', cors(getHttpCorsOptions()));
 
   // Stripe requires raw body for signature verification; mount BEFORE json parser.
   app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookHandler);

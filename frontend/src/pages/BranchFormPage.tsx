@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { branchesApi, locationsApi } from '../services/api';
+import { branchesApi, locationsApi, uploadApi } from '../services/api';
+import { publicAssetUrl } from '../config/appConfig';
 import toast from 'react-hot-toast';
 import { CountrySearchSelect } from '../components/CountrySearchSelect';
 import { locationCache } from '../utils/locationCache';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout } from '../components/design-system';
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'AED', 'CNY', 'SAR', 'KWD', 'QAR', 'INR', 'PKR'] as const;
 
@@ -12,7 +15,8 @@ export function BranchFormPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id } = useParams();
-  const isEdit = !!id;
+  const location = useLocation();
+  const isEdit = Boolean(id) && location.pathname.endsWith('/edit');
 
   const [countries, setCountries] = useState<{ isoCode: string; name: string }[]>([]);
   const [provinces, setProvinces] = useState<{ isoCode: string; name: string }[]>([]);
@@ -28,7 +32,8 @@ export function BranchFormPage() {
     city: '',
     address: '',
     currency: 'USD',
-    isActive: true
+    isActive: true,
+    logo: ''
   });
 
   const loadCountries = useCallback(async () => {
@@ -67,7 +72,8 @@ export function BranchFormPage() {
           city: b.city || '',
           address: b.address || '',
           currency: b.currency || 'USD',
-          isActive: b.isActive !== false
+          isActive: b.isActive !== false,
+          logo: b.logo || ''
         });
       })
       .catch(() => {
@@ -137,7 +143,8 @@ export function BranchFormPage() {
         city: form.city || undefined,
         address: form.address.trim() || undefined,
         currency: form.currency || undefined,
-        isActive: form.isActive
+        isActive: form.isActive,
+        logo: form.logo || undefined
       };
       if (isEdit) {
         await branchesApi.update(id!, payload);
@@ -147,15 +154,30 @@ export function BranchFormPage() {
         toast.success(t('settings.branchAdded'));
       }
       navigate('/branches');
+      window.dispatchEvent(new Event('fusiku-branding-refresh'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     } finally {
       setLoading(false);
     }
   };
 
+  const onBranchLogoFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const { data } = await uploadApi.uploadBranding(file);
+      const url = (data as any)?.url as string;
+      if (url) setForm((f) => ({ ...f, logo: url }));
+      toast.success(t('settings.logoUploaded'));
+    } catch {
+      toast.error(t('common.failed'));
+    }
+  };
+
   return (
-    <div className="page erp-form-page erp-form-compact">
+    <PageLayout className="page erp-form-page erp-form-compact">
       <div className="erp-form-header">
         <div />
         <div className="erp-form-actions">
@@ -197,6 +219,16 @@ export function BranchFormPage() {
                 onChange={(e) => setForm((f) => ({ ...f, adminName: e.target.value }))}
                 className="erp-input-compact"
               />
+            </div>
+            <div className="erp-field-row">
+              <label>{t('settings.branchLogo')}</label>
+              <p className="settings-hint" style={{ margin: '0 0 6px' }}>{t('settings.branchLogoHint')}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {form.logo ? (
+                  <img src={publicAssetUrl(form.logo) || ''} alt="" style={{ maxHeight: 44, maxWidth: 120, objectFit: 'contain' }} />
+                ) : null}
+                <input type="file" accept="image/*" onChange={onBranchLogoFile} className="erp-input-compact" />
+              </div>
             </div>
           </div>
         </section>
@@ -290,6 +322,6 @@ export function BranchFormPage() {
           </div>
         </section>
       </form>
-    </div>
+    </PageLayout>
   );
 }

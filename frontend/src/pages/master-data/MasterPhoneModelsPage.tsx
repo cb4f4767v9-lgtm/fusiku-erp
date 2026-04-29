@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { masterDataApi } from '../../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
+import { getErrorMessage } from '../../utils/getErrorMessage';
+import { PageLayout, PageHeader, TableWrapper } from '../../components/design-system';
 
 export function MasterPhoneModelsPage() {
   const { t } = useTranslation();
@@ -48,7 +50,7 @@ export function MasterPhoneModelsPage() {
       resetForm();
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -69,26 +71,34 @@ export function MasterPhoneModelsPage() {
       toast.success(t('common.delete'));
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
   return (
-    <div className="page page-master-data">
-      <div className="page-header">
-        <h1>{t('masterData.phoneModels')}</h1>
-        <div className="page-actions">
-          <div className="master-data-search">
-            <Search size={18} />
-            <input type="text" placeholder={t('common.search')} value={search} onChange={(e) => setSearch(e.target.value)} className="search-input-compact" />
-          </div>
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-            <Plus size={18} /> {t('masterData.addPhoneModel')}
-          </button>
-        </div>
-      </div>
+    <PageLayout className="page page-master-data">
+      <PageHeader
+        title={t('masterData.phoneModels')}
+        actions={
+          <>
+            <div className="master-data-search">
+              <Search size={18} />
+              <input
+                type="text"
+                placeholder={t('common.search')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="search-input-compact"
+              />
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+              <Plus size={18} /> {t('masterData.addPhoneModel')}
+            </button>
+          </>
+        }
+      />
 
-      <div className="table-container table-compact">
+      <TableWrapper className="table-compact">
         <table className="data-table data-table-compact">
           <thead>
             <tr>
@@ -101,8 +111,8 @@ export function MasterPhoneModelsPage() {
           <tbody>
             {items.map((row) => (
               <tr key={row.id}>
-                <td>{row.brand?.name || '—'}</td>
-                <td>{row.name}</td>
+                <td>{row.brand?.displayName ?? row.brand?.name ?? '—'}</td>
+                <td>{row.displayName ?? row.name}</td>
                 <td>{row.releaseYear || '—'}</td>
                 <td>
                   <button type="button" className="btn btn-secondary btn-compact" onClick={() => handleEdit(row)}><Pencil size={14} /></button>
@@ -113,14 +123,14 @@ export function MasterPhoneModelsPage() {
             {items.length === 0 && <tr><td colSpan={4}>{t('masterData.noData')}</td></tr>}
           </tbody>
         </table>
-      </div>
+      </TableWrapper>
 
       {showForm && (
         <div className="modal-overlay" onClick={resetForm}>
           <div className="modal product-form-modal" onClick={(e) => e.stopPropagation()}>
             <div className="product-form-header">
               <h2>{editingId ? t('common.edit') : t('masterData.addPhoneModel')}</h2>
-              <button type="button" onClick={resetForm} aria-label="Close"><X size={20} /></button>
+              <button type="button" onClick={resetForm} aria-label={t('common.close')}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="product-form">
               <div className="product-form-grid">
@@ -128,7 +138,7 @@ export function MasterPhoneModelsPage() {
                   <label>{t('masterData.brand')}</label>
                   <select required value={form.brandId} onChange={(e) => setForm((f) => ({ ...f, brandId: e.target.value }))}>
                     <option value="">{t('common.select')}</option>
-                    {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    {brands.map((b) => <option key={b.id} value={b.id}>{b.displayName ?? b.name}</option>)}
                   </select>
                 </div>
                 <div className="product-form-field">
@@ -148,6 +158,6 @@ export function MasterPhoneModelsPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

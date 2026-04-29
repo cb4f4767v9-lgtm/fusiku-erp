@@ -3,28 +3,32 @@
   "version": "1.0.0",
   "main": "desktop/electron-main.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:desktop\"",
+    "start": "npm run start:production",
+    "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:web": "npm run dev",
     "dev:desktop": "npm run electron",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev -- --port 5173",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev -- --port 5173",
     "dev:all": "node scripts/dev-all.js",
     "dev:erp": "npm run dev:all",
-
-    "electron": "cd desktop && electron .",
-
+    "electron": "cd desktop && npm run dev",
     "build": "echo \"skip root build\"",
     "build:web": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "build:desktop": "cd desktop && npm run build",
     "build:all": "npm run build:web && npm run build:desktop",
-
+    "start:erp": "cd backend && npm start",
+    "start:production": "npm run build:web && cd backend && npm start",
     "db:setup": "cd backend && npm run db:setup",
     "db:deploy": "cd backend && npm run db:deploy",
-    "db:studio": "cd backend && npm run db:studio"
+    "db:studio": "cd backend && npm run db:studio",
+    "clean:scan": "node tools/scan_project_health.mjs",
+    "clean:report": "node tools/clean_recommendation.mjs",
+    "clean:dry": "node tools/cleanup_executor.mjs",
+    "clean:force": "node tools/cleanup_executor.mjs --force"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "electron": "^30.0.0"
+    "concurrently": "^8.2.2"
   }
 }

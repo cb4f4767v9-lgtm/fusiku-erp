@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 import { Activity, Database, Cpu, HardDrive, Zap, RefreshCw } from 'lucide-react';
+import { PageLayout, PageHeader, LoadingSkeleton } from '../components/design-system';
+import { formatDateTimeForUi } from '../utils/formatting';
 
 export function MonitoringPage() {
   const { t } = useTranslation();
@@ -24,16 +26,25 @@ export function MonitoringPage() {
     return () => clearInterval(interval);
   }, []);
 
-  if (loading) return <div className="page-loading">{t('monitoring.loading')}</div>;
+  if (loading) {
+    return (
+      <PageLayout className="page">
+        <PageHeader title={t('monitoring.title')} />
+        <LoadingSkeleton variant="dashboard" />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">{t('monitoring.title')}</h1>
-        <button className="btn btn-secondary" onClick={load}>
-          <RefreshCw size={18} /> {t('monitoring.refresh')}
-        </button>
-      </div>
+    <PageLayout className="page">
+      <PageHeader
+        title={t('monitoring.title')}
+        actions={
+          <button type="button" className="btn btn-secondary" onClick={load}>
+            <RefreshCw size={18} /> {t('monitoring.refresh')}
+          </button>
+        }
+      />
 
       <div className="monitoring-grid">
         <div className="monitoring-card">
@@ -93,8 +104,10 @@ export function MonitoringPage() {
         <p className={`status-badge ${health?.status === 'healthy' ? 'status-ok' : 'status-warn'}`}>
           {health?.status ?? 'unknown'}
         </p>
-        <p className="monitoring-timestamp">Last check: {health?.timestamp ? new Date(health.timestamp).toLocaleString() : '—'}</p>
+        <p className="monitoring-timestamp">
+          Last check: {health?.timestamp ? formatDateTimeForUi(health.timestamp) : '—'}
+        </p>
       </div>
-    </div>
+    </PageLayout>
   );
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { masterDataApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
 
 export type MasterDataConfig = {
   entity: string;
@@ -59,7 +60,7 @@ export function MasterDataList({ config }: { config: MasterDataConfig }) {
       resetForm();
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -81,7 +82,7 @@ export function MasterDataList({ config }: { config: MasterDataConfig }) {
       toast.success(t('common.delete'));
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -121,7 +122,9 @@ export function MasterDataList({ config }: { config: MasterDataConfig }) {
               <tr key={row.id}>
                 {config.columns.map((c) => (
                   <td key={c.key}>
-                    {c.key === 'brand' && row.brand ? row.brand.name : (row[c.key] ?? '—')}
+                    {c.key === 'brand' && row.brand
+                      ? (row.brand.displayName ?? row.brand.name)
+                      : (row.displayName ?? row[c.key] ?? '—')}
                   </td>
                 ))}
                 <td>
@@ -146,7 +149,7 @@ export function MasterDataList({ config }: { config: MasterDataConfig }) {
           <div className="modal product-form-modal" onClick={(e) => e.stopPropagation()}>
             <div className="product-form-header">
               <h2>{editingId ? t('common.edit') : t(config.addKey)}</h2>
-              <button type="button" onClick={resetForm} aria-label="Close"><X size={20} /></button>
+              <button type="button" onClick={resetForm} aria-label={t('common.close')}><X size={20} /></button>
             </div>
             <form onSubmit={handleSubmit} className="product-form">
               <div className="product-form-grid">

@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80" fill="none">
-  <!-- Phone/device icon -->
-  <rect x="20" y="8" width="36" height="56" rx="4" stroke="currentColor" stroke-width="2.5" fill="none"/>
-  <rect x="26" y="14" width="24" height="36" rx="2" fill="currentColor" opacity="0.15"/>
-  <circle cx="44" cy="54" r="3" fill="currentColor"/>
-  <!-- FUSIKU text -->
-  <text x="64" y="48" font-family="system-ui, sans-serif" font-weight="700" font-size="18" fill="currentColor" letter-spacing="0.08em">FUSIKU</text>
-</svg>

@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { apiKeysApi, webhooksApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Key, Plus, Trash2, Webhook, Copy, Check } from 'lucide-react';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { PageLayout, PageHeader, LoadingSkeleton } from '../components/design-system';
+import { getBackendOrigin } from '../config/appConfig';
+import { formatDateTimeForUi } from '../utils/formatting';
 
 const PERMISSIONS = ['read_inventory', 'create_sales', 'read_reports'];
 const WEBHOOK_EVENTS = ['sale.completed', 'repair.completed', 'inventory.updated', 'low_stock.alert'];
@@ -42,7 +46,7 @@ export function DeveloperSettingsPage() {
       load();
       toast.success(t('developer.apiKeyCreated'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -53,7 +57,7 @@ export function DeveloperSettingsPage() {
       load();
       toast.success(t('developer.keyRevoked'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -73,7 +77,7 @@ export function DeveloperSettingsPage() {
       load();
       toast.success(t('developer.webhookCreated'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -84,7 +88,7 @@ export function DeveloperSettingsPage() {
       load();
       toast.success(t('developer.webhookDeleted'));
     } catch (err: any) {
-      toast.error(err.response?.data?.error || t('common.failed'));
+      toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
 
@@ -97,12 +101,18 @@ export function DeveloperSettingsPage() {
     }
   };
 
-  if (loading) return <div className="page-loading">{t('common.loading')}</div>;
+  if (loading) {
+    return (
+      <PageLayout className="page">
+        <PageHeader title={t('developer.title')} subtitle={t('developer.subtitle')} />
+        <LoadingSkeleton variant="dashboard" />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('developer.title')}</h1>
-      <p className="page-subtitle">{t('developer.subtitle')}</p>
+    <PageLayout className="page">
+      <PageHeader title={t('developer.title')} subtitle={t('developer.subtitle')} />
 
       {generatedKey && (
         <div className="dev-key-banner" style={{ padding: 16, background: 'var(--bg-tertiary)', borderRadius: 12, marginBottom: 24 }}>
@@ -136,7 +146,11 @@ export function DeveloperSettingsPage() {
                 <div>
                   <strong>{k.name}</strong>
                   <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>{k.permissions?.join(', ')}</span>
-                  {k.lastUsedAt && <span style={{ marginLeft: 8, fontSize: 11 }}>{t('developer.lastUsed')} {new Date(k.lastUsedAt).toLocaleString()}</span>}
+                  {k.lastUsedAt && (
+                    <span style={{ marginLeft: 8, fontSize: 11 }}>
+                      {t('developer.lastUsed')} {formatDateTimeForUi(k.lastUsedAt)}
+                    </span>
+                  )}
                 </div>
                 <button className="btn btn-danger btn-sm" onClick={() => revokeKey(k.id)}><Trash2 size={14} /> {t('developer.revoke')}</button>
               </li>
@@ -171,11 +185,14 @@ export function DeveloperSettingsPage() {
 
       <div className="settings-card" style={{ marginTop: 24 }}>
         <h2>{t('developer.publicApi')}</h2>
-        <p>{t('developer.baseUrl')} <code>{(import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, '')}/api/public/v1</code></p>
+        <p>
+          {t('developer.baseUrl')}{' '}
+          <code>{`${getBackendOrigin() || window.location.origin}/api/public/v1`}</code>
+        </p>
         <p>{t('developer.authentication')} <code>X-API-Key: your_key</code> or <code>Authorization: Bearer your_key</code></p>
         <p>{t('developer.rateLimit')}</p>
         <p>{t('developer.endpoints')} <code>GET /inventory</code>, <code>GET /devices</code>, <code>POST /sales</code>, <code>GET /reports</code></p>
       </div>
-    </div>
+    </PageLayout>
   );
 }
