@@ -49,7 +49,11 @@ export const repairPatternAgent = {
       faultGroups[fault].count++;
       faultGroups[fault].totalCost += Number(r.repairCost);
       const inv = inventoryByImei.get(String(r.imei || '').trim());
-      if (inv) faultGroups[fault].models.add(`${inv.brand} ${inv.model}`);
+      if (inv) {
+        const brand = (inv as any).brand ?? '';
+        const model = (inv as any).model ?? '';
+        faultGroups[fault].models.add(`${brand} ${model}`.trim());
+      }
     }
 
     const patterns: RepairPattern[] = Object.entries(faultGroups)
