@@ -11,3 +11,8 @@ export function getHttpCorsOptions(): CorsOptions {
     allowedHeaders: ['Content-Type', 'Authorization'],
   };
 }
+
+// Socket.IO accepts the same CORS shape (it forwards to the underlying engine).
+export function getSocketIoCors(): CorsOptions {
+  return getHttpCorsOptions();
+}
