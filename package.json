@@ -7,8 +7,8 @@
     "dev": "concurrently -n web,api -c cyan,magenta \"npm run dev:frontend\" \"npm run dev:backend\"",
     "dev:web": "npm run dev",
     "dev:desktop": "npm run electron",
-    "dev:backend": "npm --prefix backend run dev",
-    "dev:frontend": "npm --prefix frontend run dev -- --port 5173",
+    "dev:backend": "cross-env PORT=3002 npm --prefix backend run dev",
+    "dev:frontend": "cross-env VITE_API_URL=/api/v1 VITE_BACKEND_PORT=3002 npm --prefix frontend run dev -- --port 5173",
     "dev:all": "node scripts/dev-all.js",
     "dev:erp": "npm run dev:all",
     "electron": "cd desktop && npm run dev",
@@ -29,6 +29,7 @@
     "clean:force": "node tools/cleanup_executor.mjs --force"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
   }
 }

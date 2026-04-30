@@ -4,13 +4,15 @@ import type { Server } from 'http-proxy'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const BACKEND_PORT = Number(String(process.env.VITE_BACKEND_PORT || '3001').trim() || 3001)
+
 function sendProxyUpstreamError(res: unknown, err: NodeJS.ErrnoException) {
   if (!res || typeof (res as ServerResponse).writeHead !== 'function') return
   const httpRes = res as ServerResponse
   if (httpRes.headersSent) return
   const refused = err?.code === 'ECONNREFUSED' || err?.code === 'ECONNRESET'
   const message = refused
-    ? 'Cannot reach the API on port 3001. Start the backend and wait until the terminal shows the Fusiku API ready line (remote DB startup can take 20–60s). From the repo root use: npm run dev — so API and Vite start together.'
+    ? `Cannot reach the API on port ${BACKEND_PORT}. Start the backend and wait until the terminal shows the Fusiku API ready line (remote DB startup can take 20–60s). From the repo root use: npm run dev — so API and Vite start together.`
     : String(err?.message || 'Proxy error')
   const body = JSON.stringify({
     success: false,
@@ -58,7 +60,7 @@ export default defineConfig(({ command, isPreview }) => ({
           proxy: {
             '/api': {
               // Use localhost to allow IPv4/IPv6 resolution on Windows.
-              target: 'http://localhost:3001',
+              target: `http://localhost:${BACKEND_PORT}`,
               changeOrigin: true,
               timeout: 60_000,
               proxyTimeout: 60_000,
