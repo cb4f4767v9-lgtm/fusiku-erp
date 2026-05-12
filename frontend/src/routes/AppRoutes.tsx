@@ -1,21 +1,21 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 
 import { Layout } from '../layouts/Layout';
 import { SearchProvider } from '../contexts/SearchContext';
 import { HybridSyncProvider } from '../contexts/HybridSyncContext';
-import { ProtectedAppProviders } from '../contexts/AppStateProvider';
 
 import { canAccessModule } from '../utils/permissions';
 import { PageRouteFallback } from '../shared/components/PageRouteFallback';
 import { LoadingSkeleton } from '../components/design-system/LoadingSkeleton';
+import { companyApi } from '../services/api';
+import { useEffect, useState } from 'react';
 
 const LoginPage = lazy(() => import('../pages/LoginPage'));
 const SignupPage = lazy(() => import('../pages/SignupPage'));
+const SignupVerifyPage = lazy(() => import('../pages/SignupVerifyPage'));
 const TutorialPage = lazy(() => import('../pages/TutorialPage'));
-const SetupPage = lazy(() => import('../pages/SetupPage'));
 const SetupWizardPage = lazy(() => import('../pages/SetupWizardPage'));
 const PricingPage = lazy(() => import('../pages/PricingPage'));
 const ForgotPasswordPage = lazy(() =>
@@ -35,6 +35,9 @@ const PurchasesPage = lazy(() =>
 );
 const WholesaleSalesPage = lazy(() =>
   import('../pages/WholesaleSalesPage').then((m) => ({ default: m.WholesaleSalesPage }))
+);
+const QuotationsPage = lazy(() =>
+  import('../pages/QuotationsPage').then((m) => ({ default: m.QuotationsPage }))
 );
 const NewPurchasePage = lazy(() =>
   import('../pages/purchases/NewPurchasePage').then((m) => ({ default: m.default }))
@@ -118,13 +121,70 @@ const UnauthorizedPage = lazy(() =>
 const TranslationsAdminPage = lazy(() =>
   import('../pages/TranslationsAdminPage').then((m) => ({ default: m.TranslationsAdminPage }))
 );
+const ModulePlaceholderPage = lazy(() => import('../pages/modules/ModulePlaceholderPage'));
+const InstituteStudentsPage = lazy(() =>
+  import('../pages/institute/InstituteStudentsPage').then((m) => ({ default: m.InstituteStudentsPage }))
+);
+const InstituteStudentProfilePage = lazy(() =>
+  import('../pages/institute/InstituteStudentProfilePage').then((m) => ({ default: m.InstituteStudentProfilePage }))
+);
+const InstituteFeesPage = lazy(() =>
+  import('../pages/institute/InstituteFeesPage').then((m) => ({ default: m.InstituteFeesPage }))
+);
+const InstituteCoursesPage = lazy(() =>
+  import('../pages/institute/InstituteCoursesPage').then((m) => ({ default: m.InstituteCoursesPage }))
+);
+const InstituteBatchesPage = lazy(() =>
+  import('../pages/institute/InstituteBatchesPage').then((m) => ({ default: m.InstituteBatchesPage }))
+);
+const InstituteAttendancePage = lazy(() =>
+  import('../pages/institute/InstituteAttendancePage').then((m) => ({ default: m.InstituteAttendancePage }))
+);
+const InstituteExamsPage = lazy(() =>
+  import('../pages/institute/InstituteExamsPage').then((m) => ({ default: m.InstituteExamsPage }))
+);
+const InstituteMarksEntryPage = lazy(() =>
+  import('../pages/institute/InstituteMarksEntryPage').then((m) => ({ default: m.InstituteMarksEntryPage }))
+);
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const [saasGateOpen, setSaasGateOpen] = useState(true);
+
+  useEffect(() => {
+    if (loading || !user) {
+      setSaasGateOpen(true);
+      return;
+    }
+    let cancelled = false;
+    setSaasGateOpen(true);
+    void (async () => {
+      try {
+        const { data } = await companyApi.getProfile();
+        const saas = (data as any)?.saas;
+        const sub = saas?.subscription as { status?: string; trialEndsAt?: string | Date | null } | null | undefined;
+        const status = String(sub?.status || '').trim().toLowerCase();
+        const trialEndsAt = sub?.trialEndsAt ? new Date(sub.trialEndsAt) : null;
+        const trialExpired = status === 'trial' && trialEndsAt && trialEndsAt.getTime() < Date.now();
+        const noActivePlan = status !== 'active';
+        if (!cancelled && trialExpired && noActivePlan) {
+          navigate('/pricing', { replace: true });
+        }
+      } catch {
+        // If backend enforcement is enabled, a 402 here will already be handled by the API layer redirect.
+      } finally {
+        if (!cancelled) setSaasGateOpen(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, loading, user?.id]);
 
   if (loading) return <LoadingSkeleton variant="dashboard" />;
   if (!user) return <Navigate to="/login" replace />;
-
+  if (saasGateOpen) return <LoadingSkeleton variant="dashboard" />;
   return <>{children}</>;
 }
 
@@ -147,22 +207,13 @@ function ProtectedModuleRoute({
   return <>{children}</>;
 }
 
-function NotFoundInApp() {
-  const { t } = useTranslation();
-  return (
-    <div className="page" style={{ padding: 24 }}>
-      <h1>{t('common.notFound', { defaultValue: 'Page not found' })}</h1>
-      <p>404</p>
-    </div>
-  );
-}
-
 export function AppRoutes() {
   return (
     <Suspense fallback={<PageRouteFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/signup/verify" element={<SignupVerifyPage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
         <Route path="/pricing" element={<PricingPage />} />
@@ -173,13 +224,11 @@ export function AppRoutes() {
           path="/"
           element={
             <ProtectedRoute>
-              <ProtectedAppProviders>
-                <HybridSyncProvider>
-                  <SearchProvider>
-                    <Layout />
+              <HybridSyncProvider>
+                <SearchProvider>
+                  <Layout />
                 </SearchProvider>
               </HybridSyncProvider>
-              </ProtectedAppProviders>
             </ProtectedRoute>
           }
         >
@@ -187,6 +236,7 @@ export function AppRoutes() {
 
           <Route path="pos" element={<ProtectedModuleRoute permissionKey="sales.pos"><POSPage /></ProtectedModuleRoute>} />
           <Route path="wholesale-sales" element={<ProtectedModuleRoute permissionKey="sales.pos"><WholesaleSalesPage /></ProtectedModuleRoute>} />
+          <Route path="quotations" element={<ProtectedModuleRoute permissionKey="sales.pos"><QuotationsPage /></ProtectedModuleRoute>} />
           <Route path="purchases" element={<ProtectedModuleRoute permissionKey="purchases.view"><PurchasesPage /></ProtectedModuleRoute>} />
           <Route path="purchases/new" element={<ProtectedModuleRoute permissionKey="purchases.create"><NewPurchasePage /></ProtectedModuleRoute>} />
           <Route path="suppliers" element={<ProtectedModuleRoute permissionKey="suppliers.view"><SuppliersPage /></ProtectedModuleRoute>} />
@@ -219,7 +269,88 @@ export function AppRoutes() {
           <Route path="activity" element={<ProtectedModuleRoute permissionKey="logs.activity"><SystemActivityPage /></ProtectedModuleRoute>} />
           <Route path="logs" element={<ProtectedModuleRoute permissionKey="logs.system"><SystemLogsPage /></ProtectedModuleRoute>} />
 
-          <Route path="*" element={<NotFoundInApp />} />
+          <Route
+            path="institute/students"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteStudentsPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/students/:studentId"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteStudentProfilePage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/courses"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteCoursesPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/batches"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteBatchesPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/fees"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteFeesPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/attendance"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteAttendancePage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/exams"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteExamsPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="institute/exams/:examId/marks"
+            element={
+              <ProtectedModuleRoute permissionKey="institute.access">
+                <InstituteMarksEntryPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="parts-catalog"
+            element={
+              <ProtectedModuleRoute permissionKey="parts.catalog.view">
+                <ModulePlaceholderPage />
+              </ProtectedModuleRoute>
+            }
+          />
+          <Route
+            path="sourcing"
+            element={
+              <ProtectedModuleRoute permissionKey="sourcing.requests.manage">
+                <ModulePlaceholderPage />
+              </ProtectedModuleRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
 
         <Route path="/unauthorized" element={<ProtectedRoute><UnauthorizedPage /></ProtectedRoute>} />

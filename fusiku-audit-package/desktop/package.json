@@ -1,0 +1,98 @@
+{
+  "name": "fusiku",
+  "version": "1.0.1",
+  "description": "Fusiku Desktop - Think Smart. Play Cool.",
+  "main": "electron-main.js",
+  "scripts": {
+    "lint": "eslint \"*.js\"",
+    "dev": "electron .",
+    "icon:generate": "node scripts/generate-icon.js",
+    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false && npm --prefix .. run build:frontend && npm --prefix .. run build:backend && npm run icon:generate && electron-builder"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "electron-updater": "^6.8.3",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
+  },
+  "build": {
+    "appId": "com.fusiku.app",
+    "productName": "Fusiku",
+    "artifactName": "Fusiku-Setup-${version}.${ext}",
+    "directories": {
+      "output": "../dist"
+    },
+    "asarUnpack": [
+      "**/node_modules/sql.js/dist/sql-wasm.wasm"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Aakra",
+        "repo": "fusiku-erp"
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../shared/config.json",
+        "to": "shared/config.json"
+      },
+      {
+        "from": "../backend/dist",
+        "to": "backend/dist"
+      },
+      {
+        "from": "../backend/node_modules",
+        "to": "backend/node_modules"
+      },
+      {
+        "from": "../backend/prisma",
+        "to": "backend/prisma"
+      },
+      {
+        "from": "runtime-config.example.json",
+        "to": "runtime-config.example.json"
+      },
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist"
+      },
+      {
+        "from": "icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "icon.ico",
+      "executableName": "Fusiku"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Fusiku",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico"
+    },
+    "files": [
+      "../frontend/dist/**/*",
+      "../backend/dist/**/*",
+      "electron-main.js",
+      "preload.js",
+      "local-sqlite-db.js",
+      "auto-updater.js",
+      "icon.ico",
+      "**/*"
+    ]
+  }
+}

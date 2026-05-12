@@ -1,8 +1,13 @@
 /**
- * Root shell — routing lives in `routes/AppRoutes.tsx` (lazy-loaded pages).
+ * Root shell — providers mount once here; routing lives in `routes/AppRoutes.tsx`.
  */
+import { AppStateProvider } from './contexts/AppStateProvider';
 import { AppRoutes } from './routes/AppRoutes';
 
 export default function App() {
-  return <AppRoutes />;
+  return (
+    <AppStateProvider>
+      <AppRoutes />
+    </AppStateProvider>
+  );
 }

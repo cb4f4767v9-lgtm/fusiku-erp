@@ -57,6 +57,68 @@ function pickMessageFromPayload(data: unknown, depth = 0): string | null {
   return null;
 }
 
+/** Raw API body text for dev-only diagnostics (never show stacks to end users in prod UI). */
+export function extractApiErrorRawText(err: unknown): string {
+  if (err == null || typeof err !== 'object') return '';
+  const o = err as Record<string, unknown>;
+  const response = o.response;
+  if (response && typeof response === 'object') {
+    const data = (response as { data?: unknown }).data;
+    if (typeof data === 'string') return data.trim();
+    const picked = pickMessageFromPayload(data);
+    return picked?.trim() || '';
+  }
+  if (err instanceof Error) return err.message?.trim() || '';
+  return '';
+}
+
+export function isLikelyDbSchemaMismatchMessage(msg: string): boolean {
+  const s = msg.trim();
+  if (!s) return false;
+  if (/does not exist in the current database/i.test(s)) return true;
+  if (/Unknown column/i.test(s)) return true;
+  if (/The column `[^`]+` does not exist/i.test(s)) return true;
+  if (/relation .* does not exist/i.test(s)) return true;
+  return false;
+}
+
+function needsInfrastructureSanitize(msg: string): boolean {
+  const s = msg.trim();
+  if (!s) return false;
+  if (isLikelyDbSchemaMismatchMessage(s)) return true;
+  if (/PrismaClient/i.test(s)) return true;
+  if (/Invalid `prisma\./i.test(s)) return true;
+  if (/\bprisma\b/i.test(s) && s.length > 120) return true;
+  return false;
+}
+
+/**
+ * Replace raw Prisma / DB engine dumps with short, human-readable copy.
+ * Never intended for server logs — UI / toasts only.
+ */
+export function sanitizeClientErrorMessage(msg: string): string {
+  const s = msg.trim();
+  if (!s) return s;
+  if (isLikelyDbSchemaMismatchMessage(s)) {
+    return 'Database schema needs an update for new features. Ask your administrator to run the latest migrations (for example: prisma migrate deploy), then refresh.';
+  }
+  if (/PrismaClient/i.test(s) || /Invalid `prisma\./i.test(s)) {
+    return 'A database error occurred. Try again shortly. If it keeps happening, contact support.';
+  }
+  const first = s.split(/\r?\n/).map((l) => l.trim()).find(Boolean) || s;
+  if (first.length > 700) return `${first.slice(0, 680)}…`;
+  return first;
+}
+
+function finalizeClientMessage(msg: string, status?: number): string {
+  const s = msg.trim();
+  if (!s) return msg;
+  if (status === 401 || status === 403 || status === 404) return s;
+  if (needsInfrastructureSanitize(s)) return sanitizeClientErrorMessage(s);
+  if (s.length > 1200) return `${s.slice(0, 1180)}…`;
+  return s;
+}
+
 /**
  * Coerce API / Axios / Error values to a plain string safe for React children and toasts.
  * Axios errors extend `Error` but carry the real message on `response.data` (e.g. `{ error: 'Invalid credentials' }`
@@ -67,10 +129,11 @@ export function getErrorMessage(err: unknown, fallback = 'Unable to load data'):
 
   if (typeof err === 'string') {
     const s = err.trim();
-    return s || fallback;
+    if (!s) return fallback;
+    return finalizeClientMessage(s);
   }
   if (typeof err === 'number' || typeof err === 'boolean') {
-    return String(err);
+    return finalizeClientMessage(String(err));
   }
 
   if (typeof err === 'object' && err !== null) {
@@ -84,31 +147,31 @@ export function getErrorMessage(err: unknown, fallback = 'Unable to load data'):
 
       if (status === 401) {
         const fromData401 = pickMessageFromPayload(data);
-        if (fromData401) return fromData401;
+        if (fromData401) return finalizeClientMessage(fromData401, status);
         if (!reqUrl.includes('/auth/login') && !reqUrl.includes('/auth/register')) {
-          return 'Session expired. Please sign in again.';
+          return 'Session expired. Please login again.';
         }
       }
       if (status === 403) return 'You do not have access to this resource.';
       if (status === 404) return 'No data available.';
       if (status === 503) {
         const m = pickMessageFromPayload(data);
-        if (m) return m;
+        if (m) return finalizeClientMessage(m, status);
         return 'The server is temporarily unavailable. Try again in a moment.';
       }
       const fromValidation = pickValidationErrorsMessage(data);
-      if (fromValidation) return fromValidation;
+      if (fromValidation) return finalizeClientMessage(fromValidation, status);
       const fromData = pickMessageFromPayload(data);
-      if (fromData) return fromData;
+      if (fromData) return finalizeClientMessage(fromData, status);
     }
 
     const top = pickMessageFromPayload(o);
-    if (top) return top;
+    if (top) return finalizeClientMessage(top);
   }
 
   if (err instanceof Error) {
     const m = err.message?.trim();
-    return m || fallback;
+    return m ? finalizeClientMessage(m) : fallback;
   }
 
   return fallback;

@@ -15,7 +15,8 @@ import { connectPrismaWithRetry } from './utils/dbConnect';
 import { describeDatabaseUrl, getActiveDatabaseUrl } from './utils/databaseUrl';
 import { currencyService } from './services/currency.service';
 import { verifyToken } from './utils/jwt';
-import { isPlatformAdminRole } from './utils/tenantContext';
+import { isPlatformAdminRole, runWithTenantContext } from './utils/tenantContext';
+import { registerChatSockets } from './realtime/chatGateway';
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -97,6 +98,9 @@ io.use((socket, next) => {
   }
 });
 
+// Internal Branch Chat — registers `chat:join`, `chat:send`, `chat:typing`, …
+registerChatSockets(io);
+
 async function start() {
   try {
     // Observability must never prevent the service from starting.
@@ -131,9 +135,16 @@ async function start() {
     httpServer.listen(PORT, HOST, () => {
       logger.info(`🚀 Fusiku API + static UI on http://${HOST}:${PORT}`);
 
-      setInterval(() => {
-        currencyService.fetchLiveRates().catch(() => {});
-      }, 300000);
+      // Run the cross-tenant FX refresh inside a system-admin context so that
+      // the Prisma tenant-isolation middleware (which throws when companyId is
+      // missing on tenant-scoped models) doesn't spam "[currency] CRITICAL"
+      // errors on every interval tick.
+      const refreshFx = () =>
+        runWithTenantContext(
+          { userId: 'system:fx-refresh', isSystemAdmin: true },
+          () => currencyService.fetchLiveRates().catch(() => {})
+        );
+      setInterval(refreshFx, 300000);
     });
   } catch (err) {
     logger.error({ err }, 'Startup failed');

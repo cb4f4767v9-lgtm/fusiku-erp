@@ -50,15 +50,23 @@ export function setAccessTokenInMemory(token: string | null | undefined): void {
   memoryAccessToken = String(token || '').trim() || null;
 }
 
-export function persistRefreshToken(token: string): void {
-  const t = String(token || '').trim();
-  if (!t) return;
-
+/**
+ * Refresh tokens now live in an HttpOnly cookie (`fusiku_rt`) set by the
+ * backend on login / refresh. Persisting them in localStorage would defeat the
+ * XSS-hardening — so this is a no-op kept for call-site compatibility, and
+ * actively scrubs any value written by an older build of the app.
+ */
+export function persistRefreshToken(_token: string): void {
   try {
-    localStorage.setItem(LS_REFRESH, t);
+    localStorage.removeItem(LS_REFRESH);
   } catch {}
 }
 
+/**
+ * Read a refresh token from legacy localStorage. Returns `null` for new
+ * sessions (cookie-only). Used by `services/api.ts` exactly once on first
+ * refresh after upgrade, to migrate the user onto the cookie.
+ */
 export function readStoredRefreshToken(): string | null {
   try {
     const t = String(localStorage.getItem(LS_REFRESH) || '').trim();

@@ -5,6 +5,18 @@
   padding: 0;
 }
 
+/* Smooth route-change transition applied by <PageLayout />.
+   Short and translate-only so it never blocks input or competes with skeletons. */
+.page-transition {
+  animation: fadeIn 0.18s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+  }
+}
+
 .ds-container {
   width: 100%;
   min-width: 0;
@@ -166,14 +178,17 @@
 }
 
 .btn-primary {
-  background: #4f46e5;
+  background: linear-gradient(135deg, var(--primary), var(--primary-2));
   color: #ffffff;
-  border-color: #4f46e5;
+  border-color: transparent;
+  font-weight: 600;
+  border-radius: 10px;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-  border-color: #4338ca;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(79, 140, 255, 0.4);
+  filter: brightness(1.03);
 }
 
 .btn-secondary {
@@ -461,6 +476,15 @@ html[dir='rtl'] .data-table .numeric {
   margin-top: 0;
 }
 
+.dashboard-hero__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+
 .dashboard-hero__kicker {
   margin: 0 0 var(--space-2);
   font-size: var(--header-kicker-size);
@@ -477,6 +501,18 @@ html[dir='rtl'] .data-table .numeric {
   letter-spacing: -0.02em;
   line-height: 1.25;
   color: var(--text-primary);
+  position: relative;
+}
+
+.dashboard-hero__title::after {
+  content: '';
+  display: block;
+  height: 3px;
+  width: min(220px, 34vw);
+  margin-top: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.95), rgba(59, 130, 246, 0.75), rgba(34, 197, 94, 0.55), transparent);
+  box-shadow: none;
 }
 
 .dashboard-hero__blurb {
@@ -561,13 +597,13 @@ html[dir='rtl'] .data-table .numeric {
   line-height: 1.4;
 }
 
-.dashboard--premium .card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: var(--shadow-sm);
+body:not(.light) .dashboard--premium .card {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
   padding: 20px;
 }
 
@@ -892,38 +928,546 @@ html[dir='rtl'] .data-table .numeric {
 }
 
 .dashboard-mini-kpi {
-  padding: 14px 16px;
-  border-radius: var(--radius-md);
+  padding: 16px 16px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+  transition: border-color 0.2s ease;
 }
 
-.dashboard-mini-kpi__label {
-  display: block;
+.dashboard-mini-kpi .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dashboard-mini-kpi .card-header .title {
+  min-width: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #94a3b8;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-mini-kpi .card-header .badge {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(241, 245, 249, 0.95);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  color: rgba(15, 23, 42, 0.62);
+}
+
+.dashboard-mini-kpi .card-header .badge.positive {
+  color: rgba(16, 185, 129, 0.85);
+  border-color: rgba(16, 185, 129, 0.22);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.dashboard-mini-kpi .card-header .badge.negative {
+  color: rgba(220, 38, 38, 0.82);
+  border-color: rgba(220, 38, 38, 0.22);
+  background: rgba(220, 38, 38, 0.06);
+}
+
+.dashboard-mini-kpi .card-header .badge.neutral {
+  color: rgba(100, 116, 139, 0.9);
+  border-color: rgba(100, 116, 139, 0.22);
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.dashboard-mini-kpi--sales .card-header .badge.positive {
+  color: rgba(59, 130, 246, 0.85);
+  border-color: rgba(59, 130, 246, 0.22);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.dashboard-mini-kpi:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: none;
+  box-shadow: none;
 }
 
 .dashboard-mini-kpi__value {
   display: block;
-  margin-top: 8px;
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  color: #e2e8f0;
 }
 
+.dashboard-mini-kpi__value--xl {
+  letter-spacing: -0.03em;
+}
+
+/* Chat button pulse + spacing */
+.ai-chatbox {
+  left: calc(var(--sidebar-width-expanded, 256px) + 24px);
+  right: auto;
+  bottom: 80px;
+}
+
+.ai-chatbox__fab {
+  position: relative;
+}
+
+/* On desktop, keep chat clear of sidebar and safe areas */
+@media (max-width: 900px) {
+  .ai-chatbox {
+    left: 20px;
+    bottom: 80px;
+  }
+}
+
+.ai-chatbox__fab::after {
+  content: none;
+}
 .dashboard-mini-kpi--sales {
   border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
+  box-shadow: none;
 }
 .dashboard-mini-kpi--profit {
   border-color: color-mix(in srgb, var(--success) 22%, var(--border));
+  box-shadow: none;
 }
 .dashboard-mini-kpi--inventory {
   border-color: color-mix(in srgb, var(--neutral) 22%, var(--border));
+  box-shadow: none;
 }
 .dashboard-mini-kpi--neutral {
   border-color: var(--border);
 }
+
+/* Chart + empty states */
+.dashboard-chart-card {
+  padding: 20px;
+}
+
+.dashboard-chart {
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.dashboard-empty-state.premium {
+  position: relative;
+  border-radius: 10px;
+  padding: 16px 16px;
+  border: 1px dashed rgba(15, 23, 42, 0.16);
+  background: #f8fafc;
+}
+
+.dashboard-empty-state.premium::before {
+  content: none;
+}
+
+/* Recent sales table polish */
+.page.dashboard .data-table {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.page.dashboard .data-table th {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.page.dashboard .data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(248, 250, 252, 0.90);
+}
+
+.page.dashboard .data-table tbody tr:hover td {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+/* Floating AI chat (UI only) */
+.ai-chatbox {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 80;
+}
+
+.ai-chatbox__fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #3b82f6;
+  color: #fff;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+/* Position handled by .chat-float in final.css */
+
+.ai-chatbox__fab:hover {
+  background: #2563eb;
+  transform: none;
+  filter: none;
+  box-shadow: none;
+}
+
+.ai-chatbox__fab:active {
+  transform: none;
+}
+
+.ai-chatbox__panel {
+  width: min(380px, calc(100vw - 36px));
+  height: 440px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform-origin: bottom left;
+  animation: ai-chatbox-in 240ms ease both;
+}
+
+@keyframes ai-chatbox-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ai-chatbox__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 14px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  background:
+    radial-gradient(520px 180px at 18% 0%, rgba(99, 102, 241, 0.16), transparent 60%),
+    rgba(255, 255, 255, 0.75);
+}
+
+.ai-chatbox__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ai-chatbox__orb {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #22c55e);
+  box-shadow: 0 14px 30px rgba(34, 197, 94, 0.18);
+}
+
+.ai-chatbox__titleText {
+  min-width: 0;
+}
+
+.ai-chatbox__titleTop {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.ai-chatbox__subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.ai-chatbox__close {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.ai-chatbox__close:hover {
+  background: rgba(15, 23, 42, 0.05);
+  transform: translateY(-1px);
+}
+
+.ai-chatbox__body {
+  flex: 1;
+  padding: 14px;
+  overflow: auto;
+}
+
+.ai-chatbox__empty {
+  height: 100%;
+  border-radius: 16px;
+  border: 1px dashed rgba(99, 102, 241, 0.22);
+  background:
+    radial-gradient(420px 160px at 20% 20%, rgba(99, 102, 241, 0.12), transparent 60%),
+    radial-gradient(420px 160px at 80% 10%, rgba(34, 197, 94, 0.09), transparent 60%),
+    rgba(255, 255, 255, 0.65);
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ai-chatbox__emptyIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.12);
+  color: rgba(99, 102, 241, 0.9);
+}
+
+.ai-chatbox__emptyTitle {
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: rgba(15, 23, 42, 0.92);
+}
+
+.ai-chatbox__emptyHint {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.ai-chatbox__composer {
+  padding: 12px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.70);
+}
+
+.ai-chatbox__input {
+  flex: 1;
+  height: 40px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.ai-chatbox__send {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  background: rgba(99, 102, 241, 0.10);
+  color: rgba(15, 23, 42, 0.55);
+  font-weight: 700;
+}
+
+/* =============================== */
+/* Branch chat — overrides on top of .ai-chatbox base styles */
+/* =============================== */
+
+.branch-chat__roomPicker {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+.branch-chat__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.branch-chat__msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.96);
+  font-size: 13px;
+  color: rgba(15, 23, 42, 0.88);
+  word-break: break-word;
+}
+
+.branch-chat__msg--mine {
+  align-self: flex-end;
+  background: rgba(59, 130, 246, 0.10);
+  border-color: rgba(59, 130, 246, 0.22);
+}
+
+.branch-chat__msgMeta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+  color: rgba(15, 23, 42, 0.55);
+  margin-bottom: 2px;
+}
+
+.branch-chat__msgSender {
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+.branch-chat__msgBranch {
+  padding: 0 6px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  font-size: 10px;
+}
+
+.branch-chat__typing {
+  font-size: 11px;
+  color: rgba(15, 23, 42, 0.5);
+  padding: 0 12px 6px;
+  font-style: italic;
+}
+
+.branch-chat__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: rgba(15, 23, 42, 0.5);
+  font-size: 12px;
+  text-align: center;
+}
+
+.branch-chat__send {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: #3b82f6;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.branch-chat__send:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.branch-chat__send:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.branch-chat__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3);
+}
+
+.branch-chat__soundToggle {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: inherit;
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+.branch-chat__soundToggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body:not(.light) .branch-chat__roomPicker {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.92);
+}
+
+body:not(.light) .branch-chat__msg {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: rgba(226, 232, 240, 0.92);
+}
+
+body:not(.light) .branch-chat__msg--mine {
+  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+body:not(.light) .branch-chat__msgMeta,
+body:not(.light) .branch-chat__typing,
+body:not(.light) .branch-chat__empty {
+  color: rgba(148, 163, 184, 0.85);
+}
+
+body:not(.light) .branch-chat__msgSender {
+  color: rgba(226, 232, 240, 0.95);
+}
+
+body:not(.light) .branch-chat__msgBranch {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(226, 232, 240, 0.85);
+}
+
 
 /* =============================== */
 /* Monthly finance strip (2 compact) */
@@ -2107,6 +2651,7 @@ html[dir='rtl'] .data-table .numeric {
 }
 
 .card {
+  position: relative;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -4916,7 +5461,7 @@ table.report-inline-summary {
   margin: var(--space-2) 0 0;
   font-size: 0.875rem;
   line-height: 1.45;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   max-width: 42rem;
 }
 
@@ -4938,8 +5483,12 @@ table.report-inline-summary {
 }
 
 .page-state--error {
-  border-color: color-mix(in srgb, var(--error) 35%, var(--border));
-  background: color-mix(in srgb, var(--error) 6%, var(--bg-card));
+  /* Solid dashboard-card surface — no transparency or red wash so the
+     block reads as a real card on top of the page background. The red
+     border + warning icon do all the "this is an error" work. */
+  border-color: color-mix(in srgb, var(--error) 38%, var(--border));
+  background: var(--bg-card);
+  box-shadow: var(--ds-card-shadow);
 }
 
 .page-state__title {
@@ -4955,10 +5504,46 @@ table.report-inline-summary {
   margin: 0 0 var(--space-4);
   font-size: 0.875rem;
   line-height: 1.5;
+  color: var(--text-muted);
+  opacity: 0.92;
+}
+
+/* Error variant: keep the message strong (not faded) so the user can
+   actually read the API hint without squinting. */
+.page-state--error .page-state__title {
+  color: var(--text-primary);
+  font-size: 1.125rem;
+}
+
+.page-state--error .page-state__hint {
+  color: var(--text-primary);
+  opacity: 1;
+  max-width: 32rem;
+}
+
+.page-state--error .page-state__retry {
+  margin-top: var(--space-3);
+  min-height: 40px;
+  padding-inline: var(--space-5);
 }
 
 .page-state__retry {
   min-height: 40px;
+}
+
+.empty-box {
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+  border: 1px dashed rgba(15, 23, 42, 0.16);
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+body:not(.light) .empty-box {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
 }
 
 .page-state--empty .page-state__title {
@@ -4966,28 +5551,75 @@ table.report-inline-summary {
 }
 
 .page-state__icon {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto var(--space-4);
   border-radius: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, white), color-mix(in srgb, var(--primary) 4%, white));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 14%, white), color-mix(in srgb, var(--primary) 6%, white));
   color: var(--primary);
   box-shadow: var(--shadow-sm);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 .page-state__icon svg {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.25;
+  opacity: 1;
+}
+
+/* Warning tone — used by ErrorState. Replaces the default blue gradient
+   with a red-amber wash so the icon reads as "alert" at a glance. */
+.page-state__icon--warning {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--error) 22%, transparent),
+    color-mix(in srgb, var(--error) 10%, transparent)
+  );
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 38%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--error) 8%, transparent);
+}
+
+body:not(.light) .page-state__icon--warning {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--error) 28%, rgba(15, 23, 42, 0.4)),
+    color-mix(in srgb, var(--error) 14%, rgba(15, 23, 42, 0.4))
+  );
+  color: rgba(252, 165, 165, 0.98);
+  border-color: color-mix(in srgb, var(--error) 50%, transparent);
+}
+
+.ds-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-6);
+  max-width: 36rem;
+  margin-inline: auto;
 }
 
 .ds-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
   padding: var(--space-6);
   max-width: 32rem;
   margin-inline: auto;
+}
+
+.ds-empty-state .page-state__actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .fade-in {

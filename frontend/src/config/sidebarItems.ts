@@ -19,7 +19,11 @@ import {
   FileSpreadsheet,
   Boxes,
   ArrowRightLeft,
+  BookOpen,
+  Layers,
+  ClipboardCheck,
 } from 'lucide-react';
+import type { BusinessVertical } from '../utils/businessVertical';
 
 export interface SidebarItem {
   path: string;
@@ -27,6 +31,10 @@ export interface SidebarItem {
   permissionKey: string;
   keywords: string[];
   icon: LucideIcon;
+  /** When set, the item is only shown for these tenant verticals (see `companyBusinessType`). */
+  onlyForVerticals?: BusinessVertical[];
+  /** Hide for matching verticals (e.g. retail POS hidden for training institutes). */
+  hideForVerticals?: BusinessVertical[];
 }
 
 export type SidebarSection = {
@@ -51,6 +59,91 @@ export const sidebarSections: SidebarSection[] = [
   },
 
   {
+    id: 'institute',
+    labelKey: 'sidebar.sections.institute',
+    items: [
+      {
+        path: '/institute/students',
+        labelKey: 'nav.instituteStudents',
+        permissionKey: 'institute.access',
+        keywords: ['student', 'learner', 'trainee', '学员', 'طالب علم'],
+        icon: Users,
+        onlyForVerticals: ['institute'],
+      },
+      {
+        path: '/institute/courses',
+        labelKey: 'nav.instituteCourses',
+        permissionKey: 'institute.access',
+        keywords: ['course', 'curriculum', '课程', 'کورس'],
+        icon: BookOpen,
+        onlyForVerticals: ['institute'],
+      },
+      {
+        path: '/institute/batches',
+        labelKey: 'nav.instituteBatches',
+        permissionKey: 'institute.access',
+        keywords: ['batch', 'cohort', 'class', '班组', 'بیچ'],
+        icon: Layers,
+        onlyForVerticals: ['institute'],
+      },
+      {
+        path: '/institute/fees',
+        labelKey: 'nav.instituteFees',
+        permissionKey: 'institute.access',
+        keywords: ['fee', 'tuition', 'billing', '学费', 'فیس'],
+        icon: Receipt,
+        onlyForVerticals: ['institute'],
+      },
+      {
+        path: '/institute/attendance',
+        labelKey: 'nav.instituteAttendance',
+        permissionKey: 'institute.access',
+        keywords: ['attendance', 'presence', '考勤', 'حاضری'],
+        icon: ClipboardCheck,
+        onlyForVerticals: ['institute'],
+      },
+      {
+        path: '/institute/exams',
+        labelKey: 'nav.instituteExams',
+        permissionKey: 'institute.access',
+        keywords: ['exam', 'test', 'quiz', 'assessment', '考试', 'امتحان'],
+        icon: FileText,
+        onlyForVerticals: ['institute'],
+      },
+    ],
+  },
+
+  {
+    id: 'parts_catalog',
+    labelKey: 'sidebar.sections.partsCatalog',
+    items: [
+      {
+        path: '/parts-catalog',
+        labelKey: 'nav.partsCatalog',
+        permissionKey: 'parts.catalog.view',
+        keywords: ['parts', 'catalog', 'device', 'bom', '配件', 'قطعات'],
+        icon: Boxes,
+        onlyForVerticals: ['parts'],
+      },
+    ],
+  },
+
+  {
+    id: 'sourcing',
+    labelKey: 'sidebar.sections.sourcing',
+    items: [
+      {
+        path: '/sourcing',
+        labelKey: 'nav.sourcingRequests',
+        permissionKey: 'sourcing.requests.manage',
+        keywords: ['sourcing', 'procurement', 'request', '采购', 'ذرائع'],
+        icon: FileSpreadsheet,
+        onlyForVerticals: ['sourcing'],
+      },
+    ],
+  },
+
+  {
     id: 'sales',
     labelKey: 'sidebar.sections.sales',
     items: [
@@ -60,6 +153,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'sales.pos',
         keywords: ['pos', 'sale', 'billing', '收银', 'فروخت'],
         icon: CreditCard,
+        hideForVerticals: ['institute'],
       },
       {
         path: '/wholesale-sales',
@@ -67,6 +161,15 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'sales.pos',
         keywords: ['wholesale', 'sales', 'orders', 'invoice', 'bulk', 'جملہ', 'تھوک'],
         icon: Receipt,
+        hideForVerticals: ['institute'],
+      },
+      {
+        path: '/quotations',
+        labelKey: 'nav.quotations',
+        permissionKey: 'sales.pos',
+        keywords: ['quote', 'quotation', 'pricing', 'whatsapp', 'share', '报价', 'اقتباس', 'حوالہ'],
+        icon: FileSpreadsheet,
+        hideForVerticals: ['institute'],
       },
       {
         path: '/customers',
@@ -88,6 +191,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'purchases.view',
         keywords: ['purchase', 'buy', '采购', 'خرید'],
         icon: FileSpreadsheet,
+        hideForVerticals: ['institute'],
       },
       {
         path: '/suppliers',
@@ -95,6 +199,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'suppliers.view',
         keywords: ['supplier', 'vendor', '供应商', 'سپلائر'],
         icon: Users,
+        hideForVerticals: ['institute'],
       },
     ],
   },
@@ -109,6 +214,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'inventory.view',
         keywords: ['inventory', 'stock', 'imei', '库存', 'اسٹاک'],
         icon: Boxes,
+        hideForVerticals: ['institute'],
       },
       {
         path: '/transfers',
@@ -116,6 +222,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'inventory.transfers',
         keywords: ['transfer', '调拨', 'منتقلی'],
         icon: ArrowRightLeft,
+        hideForVerticals: ['institute'],
       },
       {
         path: '/inventory-history',
@@ -123,6 +230,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'inventory.history',
         keywords: ['history', 'movement', '历史', 'تاریخ'],
         icon: History,
+        hideForVerticals: ['institute'],
       },
     ],
   },
@@ -137,6 +245,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'operations.repairs',
         keywords: ['repair', 'fix', '维修', 'مرمت'],
         icon: Wrench,
+        onlyForVerticals: ['repair_focused'],
       },
       {
         path: '/refurbishing',
@@ -144,6 +253,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'operations.refurbish',
         keywords: ['refurbish', '翻新', 'ریفربش'],
         icon: RefreshCw,
+        onlyForVerticals: ['repair_focused'],
       },
       {
         path: '/phone-database',
@@ -151,6 +261,7 @@ export const sidebarSections: SidebarSection[] = [
         permissionKey: 'operations.phoneDatabase',
         keywords: ['phone', 'database', '手机', 'فون'],
         icon: Database,
+        onlyForVerticals: ['mobile_retail', 'parts', 'accessories'],
       },
     ],
   },

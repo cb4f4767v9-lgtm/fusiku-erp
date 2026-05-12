@@ -46,11 +46,16 @@ import { signupRoutes } from '../signup.routes';
 import { signupRateLimiter } from '../../middlewares/signupRateLimit.middleware';
 import { planRoutes } from '../plan.routes';
 import { invoiceRoutes } from '../invoice.routes';
+import { pricingRuleRoutes } from '../pricingRule.routes';
+import { quotationRoutes } from '../quotation.routes';
+import { chatRoutes } from '../chat.routes';
 import { salesOrderRoutes } from '../salesOrder.routes';
 import { translationRoutes } from '../translation.routes';
 import { analyticsRoutes } from '../analytics.routes';
 import { billingRoutes } from '../billing.routes';
+import { partCatalogRoutes } from '../partCatalog.routes';
 import { inviteRoutes } from '../invite.routes';
+import { instituteRoutes } from '../institute.routes';
 import { inviteController } from '../../controllers/invite.controller';
 
 import { authMiddleware } from '../../middlewares/auth.middleware';
@@ -58,6 +63,7 @@ import { tenantGuard } from '../../middlewares/tenantGuard.middleware';
 import { saasEnforcementMiddleware } from '../../middlewares/saasEnforcement.middleware';
 import { usageTrackingMiddleware } from '../../middlewares/usageTracking.middleware';
 import { requireSystemDiagnosticsRole } from '../../middlewares/systemDiagnostics.middleware';
+import { publicTenantBypass } from '../../middlewares/publicTenantBypass.middleware';
 
 const v1Router = Router();
 
@@ -85,7 +91,8 @@ const tenantAuthWithUsage: RequestHandler[] = [
 // ================= PUBLIC ROUTES =================
 v1Router.use('/setup', setupRoutes);
 v1Router.use('/plans', planRoutes);
-v1Router.use('/signup', signupRateLimiter, signupRoutes);
+// Signup creates the company — no JWT, no companyId. Prisma ALS uses `publicTenantBypass` so tenant isolation skips this path.
+v1Router.use('/signup', publicTenantBypass, signupRateLimiter, signupRoutes);
 
 // ================= PROTECTED ROUTES =================
 v1Router.use('/billing', ...tenantAuth, billingRoutes);
@@ -99,12 +106,17 @@ v1Router.use('/users', ...tenantAuth, userRoutes);
 v1Router.use('/branches', ...tenantAuth, branchRoutes);
 v1Router.use('/inventory', ...tenantAuth, inventoryRoutes);
 v1Router.use('/master-data', ...tenantAuth, masterDataRoutes);
+v1Router.use('/part-catalog', ...tenantAuth, partCatalogRoutes);
+v1Router.use('/institute', ...tenantAuth, instituteRoutes);
 v1Router.use('/imei', ...tenantAuth, imeiRoutes);
 v1Router.use('/suppliers', ...tenantAuth, supplierRoutes);
 v1Router.use('/purchases', ...tenantAuth, purchaseRoutes);
 v1Router.use('/pos', ...tenantAuth, posRoutes);
 v1Router.use('/sales-orders', ...tenantAuth, salesOrderRoutes);
 v1Router.use('/invoices', ...tenantAuth, invoiceRoutes);
+v1Router.use('/pricing-rules', ...tenantAuth, pricingRuleRoutes);
+v1Router.use('/quotations', ...tenantAuth, quotationRoutes);
+v1Router.use('/chat', ...tenantAuth, chatRoutes);
 v1Router.use('/repairs', ...tenantAuth, repairRoutes);
 v1Router.use('/refurbish', ...tenantAuth, refurbishRoutes);
 v1Router.use('/transfers', ...tenantAuth, transferRoutes);

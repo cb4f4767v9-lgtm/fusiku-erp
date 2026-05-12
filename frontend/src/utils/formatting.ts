@@ -42,16 +42,21 @@ export function formatDate(
  */
 export function formatCurrency(
   amount: number,
-  currency: string,
+  currency: string | null | undefined,
   locale?: string | null,
   options?: Intl.NumberFormatOptions
 ): string {
-  const code = String(currency || 'USD')
-    .trim()
-    .toUpperCase() || 'USD';
+  const code = String(currency ?? '').trim().toUpperCase();
   const intlLocale = resolveIntlLocale(locale);
   const n = Number(amount);
   if (!Number.isFinite(n)) return '';
+  if (!code || code.length < 3) {
+    return formatNumber(n, locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+      ...options,
+    });
+  }
   try {
     return new Intl.NumberFormat(intlLocale, {
       style: 'currency',

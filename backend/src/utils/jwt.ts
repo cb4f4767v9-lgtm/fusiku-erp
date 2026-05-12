@@ -1,7 +1,32 @@
 import jwt from 'jsonwebtoken';
 
+/**
+ * Access token expiry. Short by design (15 minutes) — silent refresh keeps the
+ * session alive via the refresh token (HttpOnly cookie). Override with `JWT_EXPIRES`.
+ */
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '15m';
-const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || '30d';
+/**
+ * Refresh token expiry. 7 days = "remember me until manually logged out", with
+ * sliding-window refresh on every successful `/auth/refresh`. Override with `JWT_REFRESH_EXPIRES`.
+ */
+const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES || '7d';
+
+/** Refresh token lifetime in milliseconds — used for cookie `Max-Age`. */
+export function refreshTokenMaxAgeMs(): number {
+  const raw = String(JWT_REFRESH_EXPIRES).trim();
+  const m = raw.match(/^(\d+)\s*([smhdwy])?$/i);
+  if (!m) return 7 * 24 * 60 * 60 * 1000;
+  const n = Number(m[1]);
+  const unit = (m[2] || 's').toLowerCase();
+  const factor =
+    unit === 's' ? 1_000 :
+    unit === 'm' ? 60_000 :
+    unit === 'h' ? 3_600_000 :
+    unit === 'd' ? 86_400_000 :
+    unit === 'w' ? 604_800_000 :
+    unit === 'y' ? 31_536_000_000 : 1_000;
+  return n * factor;
+}
 
 function requireSecret(name: 'JWT_SECRET' | 'REFRESH_SECRET'): string {
   const v = String(process.env[name] ?? '').trim();

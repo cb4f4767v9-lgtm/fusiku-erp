@@ -233,6 +233,7 @@
     "name": "福斯库",
     "slogan": "聪明思考。玩酷。",
     "poweredBy": "由福斯库提供支持",
+    "footerCopyright": "福斯库 © {{year}}",
     "copyrightShort": "© 2026 福斯库"
   },
   "languages": {
@@ -247,6 +248,11 @@
   "errorBoundary": {
     "title": "出了点问题",
     "hint": "请刷新页面。"
+  },
+  "license": {
+    "offlineExpiredTitle": "请联网后继续",
+    "offlineExpiredBody": "离线使用期限已结束。请连接互联网以刷新会话。",
+    "offlineExpiredHint": "联网并成功登录后，系统会自动延长离线可用时间。"
   },
   "login": {
     "title": "登入",
@@ -266,7 +272,38 @@
     "invalidCredentialsHint": "请核对密码，并确认 VITE_DEFAULT_COMPANY_ID 与数据库中该用户所属公司的 ID 一致（Prisma Studio：User.companyId）。",
     "accountConfigError": "帐户密码存储配置错误。管理员必须先修复此问题，然后您才能登录。使用重置管理或数据库修复工具。",
     "noAccount": "新公司？",
-    "createCompany": "创建工作区"
+    "createCompany": "创建工作区",
+    "resendCodeIn": "{{time}} 后可重新发送验证码",
+    "resendCode": "重新发送验证码",
+    "resendingCode": "发送中…",
+    "newCodeSent": "我们已发送新的验证码。",
+    "resendCodeFailed": "无法重新发送验证码。",
+    "subtitlePassword": "使用邮箱和密码登录。",
+    "subtitleOtp": "我们将向您的邮箱发送一次性验证码以登录。",
+    "verifyDeviceTitle": "验证",
+    "verifyDeviceSubtitle": "请输入我们发到您邮箱的验证码以完成登录。",
+    "verifyEmailOtpSubtitle": "请输入我们发送到您邮箱的 6 位验证码。",
+    "deviceOtpLabel": "6 位验证码",
+    "rememberDevice": "记住此设备（在常用浏览器上减少验证步骤）。",
+    "signInPassword": "登录",
+    "forgotPasswordLink": "忘记密码？",
+    "useEmailCodeInstead": "改用邮箱验证码",
+    "sendOtpCode": "邮箱验证码登录",
+    "usePasswordInstead": "改用密码登录",
+    "deviceVerificationSent": "请输入我们发送给您的验证码。",
+    "stepUpCodeSent": "请输入我们发送给您的验证码。",
+    "deviceOtpInvalid": "请输入 6 位验证码。",
+    "deviceOtpWrong": "验证码无效。",
+    "backToPassword": "返回",
+    "verifyDevice": "验证",
+    "orContinue": "或通过以下方式继续",
+    "watchTutorial": "观看教程",
+    "valueTrust": "清晰流程、可导出报表与专业收据。",
+    "companyIdAuto": "本设备已自动选择所属公司。",
+    "value1": "追踪每台手机（IMEI）",
+    "value2": "管理多家分店",
+    "value3": "实时查看利润",
+    "value4": "获得自动洞察"
   },
   "signup": {
     "title": "创建工作区",
@@ -459,7 +496,10 @@
     "totalSellingValue": "总销售价值",
     "estimatedProfit": "预计利润",
     "recentSales": "最近的销售",
-    "noRecentSales": "暂无最近销售。完成的 POS 销售将显示在此处。",
+    "noRecentSales": "暂无销售 — 创建首笔销售以开始跟踪收入。",
+    "noRecentSalesHint": "在 POS 完成销售后，将在此处显示日期、金额与利润。",
+    "createFirstSale": "打开 POS",
+    "createFirstRecord": "打开 POS",
     "salesChartLast30Days": "销售额（过去 30 天）",
     "salesLast30Days": "销售额（过去 30 天）",
     "revenueByMonth": "月度销售额（最近 {{count}} 个月）",
@@ -486,7 +526,8 @@
     "noData": "无数据",
     "sold": "卖",
     "inStock": "有存货",
-    "emptyRevenueChart": "当有一个或多个月份产生销售后，此处将显示收入趋势。请在 POS 录入销售。",
+    "emptyRevenueChart": "暂无收入记录 — 录入销售后可生成月度图表。",
+    "emptyRevenueChartHint": "每笔完成的 POS 销售会计入自然月合计，并按所选显示货币换算。",
     "emptyTopModels": "暂无排名。热销型号根据已完成销售计算。",
     "emptyLowStock": "目前正常 — 没有 SKU 低于低库存阈值。",
     "executive": {

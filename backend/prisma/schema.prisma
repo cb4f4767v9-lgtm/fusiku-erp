@@ -1,7 +1,3 @@
-// FUSIKU ERP - Prisma Schema
-// Think Smart. Play Cool.
-// Phase 5 SaaS Platform
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,71 +9,82 @@ datasource db {
 }
 
 model Company {
-  id           String   @id @default(cuid())
-  name         String
-  logo         String?
-  email        String?
-  phone        String?
-  address      String?
-  isActive     Boolean  @default(true)
+  id                     String                  @id @default(cuid())
+  name                   String
+  logo                   String?
+  email                  String?
+  phone                  String?
+  address                String?
+  isActive               Boolean                 @default(true)
   /// SaaS onboarding: mobile_shop | repair_shop | trading
-  businessType String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  branches        Branch[]
-  users           User[]
-  suppliers       Supplier[]
-  customers       Customer[]
-  purchases       Purchase[]
-  sales           Sale[]
-  repairs         Repair[]
-  stockAlerts     StockAlert[]
-  companySettings CompanySettings?
-  subscriptions   Subscription[]
-  apiKeys         ApiKey[]
-  webhooks        Webhook[]
-  warranties      Warranty[]
-
-  inventory            Inventory[]
-  barcodeSequences     BarcodeSequence[]
-  stockMovements       StockMovement[]
-  transfers            Transfer[]
-  refurbishJobs        RefurbishJob[]
-  fileUploads          FileUpload[]
-  aiAlerts             AIAlert[]
-  integrationLogs      IntegrationLog[]
-  deviceHistories      DeviceHistory[]
-  inventoryParts       InventoryPart[]
-  expenses             Expense[]
-  payments             Payment[]
-  profitReports        ProfitReport[]
-  currencies           Currency[]
-  currencyHistories    CurrencyHistory[]
-  supplierFxRates      SupplierFxRate[]
-  investors            Investor[]
-  investorTransactions InvestorTransaction[]
-  profitDistributions  ProfitDistribution[]
-  usage                CompanyUsage?
-  imeiHistories        IMEIHistory[]
-  imeiRecords          IMEIRecord[]
-
-  // Sales Orders + Invoicing
-  salesOrders SalesOrder[]
-  invoices    Invoice[]
-
-  translations Translation[]
-  exchangeRateHistories ExchangeRateHistory[]
-
-  setupProfile SetupProfile?
+  businessType           String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  aiAlerts               AIAlert[]
+  apiKeys                ApiKey[]
+  barcodeSequences       BarcodeSequence?
+  branches               Branch[]
+  companySettings        CompanySettings?
+  usage                  CompanyUsage?
+  currencies             Currency[]
+  currencyHistories      CurrencyHistory[]
+  customers              Customer[]
+  deviceHistories        DeviceHistory[]
+  exchangeRateHistories  ExchangeRateHistory[]
+  expenses               Expense[]
+  fileUploads            FileUpload[]
+  imeiHistories          IMEIHistory[]
+  imeiRecords            IMEIRecord[]
+  instituteAttendances   InstituteAttendance[]
+  instituteBatches       InstituteBatch[]
+  instituteCourses       InstituteCourse[]
+  instituteEnrollments   InstituteEnrollment[]
+  instituteFeeCharges    InstituteFeeCharge[]
+  instituteStudents      InstituteStudent[]
+  instituteExams         InstituteExam[]
+  instituteExamResults   InstituteExamResult[]
+  integrationLogs        IntegrationLog[]
+  inventory              Inventory[]
+  inventoryParts         InventoryPart[]
+  investors              Investor[]
+  investorTransactions   InvestorTransaction[]
+  invoices               Invoice[]
+  partCatalogSeries      PartCatalogSeries[]
+  partCatalogSuggestions PartCatalogSuggestion[]
+  payments               Payment[]
+  pricingRules           PricingRule[]
+  profitDistributions    ProfitDistribution[]
+  profitReports          ProfitReport[]
+  purchases              Purchase[]
+  quotations             Quotation[]
+  chatRooms              ChatRoom[]
+  chatMessages           ChatMessage[]
+  refurbishJobs          RefurbishJob[]
+  repairs                Repair[]
+  sales                  Sale[]
+  salesOrders            SalesOrder[]
+  setupProfile           SetupProfile?
+  sourcingRequests       SourcingRequest[]
+  stockAlerts            StockAlert[]
+  stockMovements         StockMovement[]
+  subscriptions          Subscription?
+  suppliers              Supplier[]
+  supplierFxRates        SupplierFxRate[]
+  transfers              Transfer[]
+  translations           Translation[]
+  users                  User[]
+  warranties             Warranty[]
+  webhooks               Webhook[]
 }
 
 /// Post-signup onboarding wizard answers (per-tenant).
 model SetupProfile {
-  id               String   @id @default(cuid())
+  id                String   @id @default(cuid())
   companyId         String   @unique
-  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   businessType      String
+  /// Multi-select verticals chosen in setup wizard (e.g. ["Mobile Shop","Institute"]).
+  /// Backward compatible: `businessType` remains the primary legacy value.
+  businessTypes     Json?
   platform          String
   /// Array of ISO codes + optional sentinel 'OTHER'.
   sourcingCountries Json
@@ -85,30 +92,27 @@ model SetupProfile {
   requirements      String
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
-// Master Data - Core foundation for ERP
 model MasterCategory {
-  id     String  @id @default(cuid())
-  name   String
-  nameZh String?
-  nameAr String?
-  nameUr String?
-
+  id           String                      @id @default(cuid())
+  name         String                      @unique
+  nameZh       String?
+  nameAr       String?
+  nameUr       String?
   translations MasterCategoryTranslation[]
-
-  @@unique([name])
 }
 
 model MasterCategoryTranslation {
   id             String         @id @default(cuid())
   categoryId     String
-  category       MasterCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   /// BCP-47 base language tag e.g. en | zh | ar | ur
   language       String
   translatedName String
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  category       MasterCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([categoryId, language])
   @@index([language])
@@ -131,8 +135,8 @@ model MasterToolBrand {
 
 model StorageSize {
   id     String @id @default(cuid())
-  sizeGb Int    @unique // 16, 32, 64, 128, 256, 512, 1024
-  label  String @unique // "16GB", "64GB", "1TB"
+  sizeGb Int    @unique
+  label  String @unique
 }
 
 model DeviceColor {
@@ -153,7 +157,6 @@ model DeviceFault {
 model CompanySettings {
   id                    String    @id @default(cuid())
   companyId             String    @unique
-  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   /// Company operating / reporting currency (does not change ledger USD pivot).
   baseCurrency          String    @default("USD")
   /// Legacy alias kept for backward compatibility with older clients.
@@ -167,7 +170,7 @@ model CompanySettings {
   /// Optional book equity in USD for capital reporting (company-owned capital).
   companyEquityUsd      Float?
   /// Inventory pricing method used for NEW sales only (historical sales are never recalculated).
-  pricingMethod         String    @default("FIFO") // FIFO | LIFO | CURRENT
+  pricingMethod         String    @default("FIFO")
   /// Optional flag for "profit locked" milestone tracking (does not mutate historical sales).
   pricingLocked         Boolean   @default(false)
   pricingLockedAt       DateTime?
@@ -175,42 +178,40 @@ model CompanySettings {
   hidePoweredByBranding Boolean   @default(false)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
+  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model SubscriptionPlan {
-  id                    String   @id @default(cuid())
-  name                  String   @unique
+  id                    String         @id @default(cuid())
+  name                  String         @unique
   /// Base recurring price (USD/month) before per-branch / per-module add-ons.
-  priceMonthly          Float    @default(0)
-  maxUsers              Int      @default(10)
-  maxBranches           Int      @default(3)
+  priceMonthly          Float          @default(0)
+  maxUsers              Int            @default(10)
+  maxBranches           Int            @default(3)
   /// Feature toggles, e.g. { "multiCurrency": true, "aiInsights": false, "removeBranding": false }
-  features              Json     @default("{}")
-  active                Boolean  @default(true)
+  features              Json           @default("{}")
+  active                Boolean        @default(true)
   /// flat | per_branch | per_module | unlimited
-  pricingModel          String   @default("flat")
+  pricingModel          String         @default("flat")
   /// Used when pricingModel = per_branch (USD per extra branch / month).
   pricePerBranchMonthly Float?
   /// Used when pricingModel = per_module: { "aiInsights": 29, "forexTrading": 19 }
   modulePrices          Json?
   /// When true, maxUsers / maxBranches caps are not enforced.
-  limitsUnlimited       Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  subscriptions Subscription[]
+  limitsUnlimited       Boolean        @default(false)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  subscriptions         Subscription[]
 }
 
 /// One active billing row per company (maps to SaaS "CompanySubscription").
 model Subscription {
   id                   String           @id @default(cuid())
-  companyId            String
-  company              Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId            String           @unique
   planId               String
-  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
   startDate            DateTime
   endDate              DateTime
-  status               String           @default("active") // active | expired | cancelled | trial
+  status               String           @default("active")
   trialEndsAt          DateTime?
   /// Stripe Customer id (billing Phase 4.1 — no SDK wired yet).
   stripeCustomerId     String?
@@ -218,19 +219,19 @@ model Subscription {
   currentPeriodEnd     DateTime?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
-
-  @@unique([companyId])
+  company              Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan                 SubscriptionPlan @relation(fields: [planId], references: [id])
 }
 
 /// Cached usage counters per tenant (recomputed from source tables).
 model CompanyUsage {
   companyId         String   @id
-  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   activeUsers       Int      @default(0)
   activeBranches    Int      @default(0)
   inventoryCount    Int      @default(0)
   salesCountMonthly Int      @default(0)
   updatedAt         DateTime @updatedAt
+  company           Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model Permission {
@@ -238,17 +239,17 @@ model Permission {
   code            String           @unique
   name            String
   description     String?
-  rolePermissions RolePermission[]
   createdAt       DateTime         @default(now())
+  rolePermissions RolePermission[]
 }
 
 model RolePermission {
   id           String     @id @default(cuid())
   roleId       String
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permissionId String
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
   createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
 }
@@ -257,114 +258,140 @@ model Role {
   id              String           @id @default(cuid())
   name            String           @unique
   description     String?
-  users           User[]
-  rolePermissions RolePermission[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-}
-
-// SystemAdmin role has no companyId - can access global admin
-
-enum UserBranchRole {
-  SUPER_ADMIN
-  BRANCH_ADMIN
-  BRANCH_USER
+  rolePermissions RolePermission[]
+  users           User[]
 }
 
 model User {
-  id         String         @id @default(cuid())
-  email      String
-  password   String
-  name       String
-  phone      String?
-  roleId     String
-  role       Role           @relation(fields: [roleId], references: [id])
+  id                              String                  @id @default(cuid())
+  email                           String
+  password                        String
+  name                            String
+  phone                           String?
+  roleId                          String
   /// Branch isolation role for operational access control (Phase 1).
   /// SUPER_ADMIN may have branchId = null; branch roles must have branchId.
-  branchRole UserBranchRole @default(BRANCH_USER)
-  companyId  String
-  company    Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String?
-  branch     Branch?        @relation(fields: [branchId], references: [id])
+  branchRole                      UserBranchRole          @default(BRANCH_USER)
+  companyId                       String
+  branchId                        String?
   /// UI / API locale: en | zh | ar | ur (BCP-47 base).
-  language   String         @default("en")
+  language                        String                  @default("en")
   /// Preferred display / settlement currency (ISO 4217) for this user in the app shell.
-  currency   String         @default("USD")
-  isActive   Boolean        @default(true)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  auditLogs         AuditLog[]
-  activityLogs      ActivityLog[]
-  repairs           Repair[]
-  refurbishJobs     RefurbishJob[]
-  transfers         Transfer[]
-  passwordResets    PasswordReset[]
-  branchPermissions BranchPermission[]
-
-  // Sales Orders + Invoicing
-  createdSalesOrders SalesOrder[] @relation("SalesOrderCreatedBy")
-  createdInvoices    Invoice[]    @relation("InvoiceCreatedBy")
+  currency                        String                  @default("USD")
+  isActive                        Boolean                 @default(true)
+  /// Set when the user completes email verification (e.g. signup OTP).
+  emailVerifiedAt                 DateTime?
+  /// Set when phone ownership was verified (e.g. signup SMS/WhatsApp OTP).
+  phoneVerifiedAt                 DateTime?
+  /// When true, every login requires step-up OTP (channel below).
+  twoFactorEnabled                Boolean                 @default(false)
+  /// Preferred channel for login step-up codes: EMAIL | SMS | WHATSAPP.
+  otpChannel                      String                  @default("EMAIL")
+  createdAt                       DateTime                @default(now())
+  updatedAt                       DateTime                @updatedAt
+  activityLogs                    ActivityLog[]
+  auditLogs                       AuditLog[]
+  branchPermissions               BranchPermission[]
+  createdInvoices                 Invoice[]               @relation("InvoiceCreatedBy")
+  partCatalogSuggestionsReviewed  PartCatalogSuggestion[] @relation("PartCatalogSuggestionReviewedBy")
+  partCatalogSuggestionsSubmitted PartCatalogSuggestion[] @relation("PartCatalogSuggestionSubmittedBy")
+  passwordResets                  PasswordReset[]
+  refurbishJobs                   RefurbishJob[]
+  repairs                         Repair[]
+  createdSalesOrders              SalesOrder[]            @relation("SalesOrderCreatedBy")
+  transfers                       Transfer[]
+  trustedDevices                  TrustedDevice[]
+  chatMessages                    ChatMessage[]
+  branch                          Branch?                 @relation(fields: [branchId], references: [id])
+  company                         Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role                            Role                    @relation(fields: [roleId], references: [id])
 
   @@unique([companyId, email])
   @@index([companyId])
 }
 
+/// Browser-stable device id (client UUID) + last-seen network context for new-device login checks.
+model TrustedDevice {
+  id           String   @id @default(cuid())
+  userId       String
+  deviceId     String
+  userAgent    String?
+  lastIp       String?
+  lastLocation String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId])
+}
+
 model PasswordReset {
   id        String   @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([expiresAt])
 }
 
 model Branch {
-  id        String   @id @default(cuid())
-  companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name      String
-  code      String?
-  adminName String?
-  /// Default operating currency for this branch (ISO 4217). Exposed as `defaultCurrency` in auth/session payloads.
-  currency  String?  @default("USD")
+  id                 String              @id @default(cuid())
+  companyId          String
+  name               String
+  code               String?
+  adminName          String?
+  /// Operating currency for this branch (ISO 4217). Auth/session exposes this as `branchDefaultCurrency`.
+  currency           String?             @default("USD")
+  /// Institute tuition / fee postings default to this ISO code when set; otherwise `currency` (operating).
+  instituteFeeCurrency       String?
+  /// Receipts & payment rows default to this when set; otherwise fee currency → operating.
+  instituteReceiptCurrency   String?
+  /// Branch-scoped financial reports for institute (and related AR); otherwise operating `currency`.
+  instituteReportingCurrency String?
   /// Enterprise: branch-level operating margin/overhead percent (0–100). Used in profit analytics.
-  marginPercent Float @default(0)
+  marginPercent      Float               @default(0)
   /// Default UI language for users assigned to this branch when they have no explicit `User.language`.
-  defaultLanguage String @default("en")
-  country   String?
-  province  String?
-  city      String?
-  address   String?
-  phone     String?
-  logo      String? // public URL path e.g. /uploads/branding/uuid.png
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  users              User[]
+  defaultLanguage    String              @default("en")
+  country            String?
+  province           String?
+  city               String?
+  address            String?
+  phone              String?
+  logo               String?
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  aiAlerts           AIAlert[]
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts           BranchContact[]
+  branchPermissions  BranchPermission[]
+  expenses           Expense[]
+  instituteStudents  InstituteStudent[]
   inventory          Inventory[]
-  purchases          Purchase[]
-  sales              Sale[]
-  transfersFrom      Transfer[]          @relation("TransferFrom")
-  transfersTo        Transfer[]          @relation("TransferTo")
-  stockMovements     StockMovement[]
   inventoryLocations InventoryLocation[]
   inventoryParts     InventoryPart[]
-  branchPermissions  BranchPermission[]
-  contacts           BranchContact[]
-  expenses           Expense[]
-  repairs            Repair[]
+  invoices           Invoice[]
+  payments           Payment[]
+  purchases          Purchase[]
   refurbishJobs      RefurbishJob[]
-  aiAlerts           AIAlert[]
-
-  // Sales Orders + Invoicing
-  salesOrders SalesOrder[]
-  invoices    Invoice[]
-  payments    Payment[]
+  repairs            Repair[]
+  sales              Sale[]
+  salesOrders        SalesOrder[]
+  stockMovements     StockMovement[]
+  transfersFrom      Transfer[]          @relation("TransferFrom")
+  transfersTo        Transfer[]          @relation("TransferTo")
+  users              User[]
+  chatRoomsAsBranch  ChatRoom[]          @relation("ChatRoomBranch")
+  chatRoomsAsA       ChatRoom[]          @relation("ChatRoomBranchA")
+  chatRoomsAsB       ChatRoom[]          @relation("ChatRoomBranchB")
+  chatMessages       ChatMessage[]
+  instituteExams     InstituteExam[]
 
   @@index([companyId])
 }
@@ -372,47 +399,44 @@ model Branch {
 model BranchContact {
   id          String   @id @default(cuid())
   branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  contactType String // phone
+  contactType String
   value       String
   createdAt   DateTime @default(now())
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   @@index([branchId])
 }
 
 model Supplier {
-  id               String   @id @default(cuid())
+  id               String            @id @default(cuid())
   companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   /// Default settlement / quote currency for this supplier (ISO 4217).
-  currency         String   @default("USD")
+  currency         String            @default("USD")
   name             String
   companyName      String?
   email            String?
   website          String?
-  country          String // required
+  country          String
   province         String?
   city             String?
   address          String?
-  openingBalance   Float    @default(0)
-  balanceType      String   @default("debit")
+  openingBalance   Float             @default(0)
+  balanceType      String            @default("debit")
   paymentMethod    String?
   moneyStatus      String?
-  availableBalance Float    @default(0)
-  blockedBalance   Float    @default(0)
-  // total_balance = availableBalance + blockedBalance (computed)
-  // Legacy
+  availableBalance Float             @default(0)
+  blockedBalance   Float             @default(0)
   contact          String?
   phone            String?
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  purchases       Purchase[]
-  fxRates         SupplierFxRate[]
-  supplierRatings SupplierRating[]
-  priceHistory    PriceHistory[]
-  contacts        SupplierContact[]
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  priceHistory     PriceHistory[]
+  purchases        Purchase[]
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts         SupplierContact[]
+  fxRates          SupplierFxRate[]
+  supplierRatings  SupplierRating[]
 
   @@index([companyId])
 }
@@ -420,19 +444,18 @@ model Supplier {
 model SupplierContact {
   id          String   @id @default(cuid())
   supplierId  String
-  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  contactType String // phone | whatsapp | wechat | email | alipay
+  contactType String
   value       String
   qrCodeUrl   String?
   createdAt   DateTime @default(now())
+  supplier    Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@index([supplierId])
 }
 
 model Customer {
-  id             String   @id @default(cuid())
+  id             String            @id @default(cuid())
   companyId      String
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name           String
   companyName    String?
   email          String?
@@ -441,23 +464,21 @@ model Customer {
   province       String?
   city           String?
   address        String?
-  openingBalance Float    @default(0)
-  balanceType    String   @default("debit")
+  openingBalance Float             @default(0)
+  balanceType    String            @default("debit")
   paymentMethod  String?
   moneyStatus    String?
   phone          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  sales     Sale[]
-  repairs   Repair[]
-  purchases Purchase[]
-  contacts  CustomerContact[]
-
-  // Sales Orders + Invoicing
-  salesOrders SalesOrder[]
-  invoices    Invoice[]
-  payments    Payment[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contacts       CustomerContact[]
+  invoices       Invoice[]
+  payments       Payment[]
+  purchases      Purchase[]
+  repairs        Repair[]
+  sales          Sale[]
+  salesOrders    SalesOrder[]
 
   @@index([companyId])
 }
@@ -465,11 +486,11 @@ model Customer {
 model CustomerContact {
   id          String   @id @default(cuid())
   customerId  String
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  contactType String // phone | whatsapp | wechat | email
+  contactType String
   value       String
   qrCodeUrl   String?
   createdAt   DateTime @default(now())
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId])
 }
@@ -478,33 +499,34 @@ model PhoneBrand {
   id           String                  @id @default(cuid())
   name         String                  @unique
   createdAt    DateTime                @default(now())
-  phoneModels  PhoneModel[]
   translations PhoneBrandTranslation[]
+  phoneModels  PhoneModel[]
 }
 
 model PhoneBrandTranslation {
   id             String     @id @default(cuid())
   brandId        String
-  brand          PhoneBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
   /// BCP-47 base language tag e.g. en | zh | ar | ur
   language       String
   translatedName String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+  brand          PhoneBrand @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
   @@unique([brandId, language])
   @@index([language])
 }
 
 model PhoneModel {
-  id           String                  @id @default(cuid())
-  brandId      String
-  brand        PhoneBrand              @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  name         String
-  releaseYear  Int?
-  createdAt    DateTime                @default(now())
-  variants     PhoneVariant[]
-  translations PhoneModelTranslation[]
+  id                String                  @id @default(cuid())
+  brandId           String
+  name              String
+  releaseYear       Int?
+  createdAt         DateTime                @default(now())
+  partCatalogSeries PartCatalogSeries[]
+  brand             PhoneBrand              @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  translations      PhoneModelTranslation[]
+  variants          PhoneVariant[]
 
   @@unique([brandId, name])
   @@index([brandId])
@@ -513,28 +535,30 @@ model PhoneModel {
 model PhoneModelTranslation {
   id             String     @id @default(cuid())
   modelId        String
-  model          PhoneModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
   /// BCP-47 base language tag e.g. en | zh | ar | ur
   language       String
   translatedName String
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+  model          PhoneModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
 
   @@unique([modelId, language])
   @@index([language])
 }
 
 model PhoneVariant {
-  id          String                @id @default(cuid())
-  modelId     String
-  model       PhoneModel            @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  storage     String
-  color       String
-  createdAt   DateTime              @default(now())
-  inventory   Inventory[]
-  deviceSpecs DeviceSpecification[]
+  id                         String                         @id @default(cuid())
+  modelId                    String
+  storage                    String
+  color                      String
+  createdAt                  DateTime                       @default(now())
+  deviceSpecs                DeviceSpecification[]
+  inventory                  Inventory[]
+  partCatalogCompatibilities PartCatalogItemCompatibility[]
+  model                      PhoneModel                     @relation(fields: [modelId], references: [id], onDelete: Cascade)
 
   @@unique([modelId, storage, color])
+  @@index([modelId])
 }
 
 model DeviceGrade {
@@ -547,13 +571,12 @@ model DeviceGrade {
 }
 
 model Inventory {
-  id                     String        @id @default(cuid())
+  id                     String           @id @default(cuid())
   companyId              String
-  company                Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  imei                   String        @unique
-  barcode                String?       @unique
+  imei                   String           @unique
+  barcode                String?          @unique
   /// phone | part | accessory
-  productType            String        @default("phone")
+  productType            String           @default("phone")
   brand                  String
   model                  String
   storage                String
@@ -562,7 +585,7 @@ model Inventory {
   purchasePrice          Float
   /// True when cost basis is not fully auditable (e.g. pre-migration stock). Reports must show the legacy-cost warning label.
   /// Optional one-time SQL after deploy: UPDATE "Inventory" SET "isLegacyCost" = true WHERE "costUsd" IS NULL;
-  isLegacyCost           Boolean       @default(false)
+  isLegacyCost           Boolean          @default(false)
   /// Optional: unit cost in `originalCurrency` before FX to USD (audit trail: original → converted → costUsd).
   originalCost           Float?
   originalCurrency       String?
@@ -572,29 +595,28 @@ model Inventory {
   purchaseCurrency       String?
   /// Units of `purchaseCurrency` per 1 USD at acquisition (same convention as Sale.exchangeRateAtTransaction).
   exchangeRateAtPurchase Float?
-  cargoCost              Float         @default(0)
+  cargoCost              Float            @default(0)
   sellingPrice           Float
   branchId               String
-  branch                 Branch        @relation(fields: [branchId], references: [id])
   /// available | sold | repair | damaged | transferred
-  status                 String        @default("available")
+  status                 String           @default("available")
   notes                  String?
   phoneVariantId         String?
-  phoneVariant           PhoneVariant? @relation(fields: [phoneVariantId], references: [id])
   deviceGradeId          String?
-  deviceGrade            DeviceGrade?  @relation(fields: [deviceGradeId], references: [id])
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
-
-  imeiRecords    IMEIRecord[]
-  saleItems      SaleItem[]
-  stockMovements StockMovement[]
-  transferItems  TransferItem[]
-  deviceHistory  DeviceHistory[]
-
-  // Sales Orders + Invoicing
-  salesOrderItems SalesOrderItem[]
-  invoiceItems    InvoiceItem[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+  deviceHistory          DeviceHistory[]
+  imeiRecords            IMEIRecord[]
+  branch                 Branch           @relation(fields: [branchId], references: [id])
+  company                Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  deviceGrade            DeviceGrade?     @relation(fields: [deviceGradeId], references: [id])
+  phoneVariant           PhoneVariant?    @relation(fields: [phoneVariantId], references: [id])
+  invoiceItems           InvoiceItem[]
+  quotationItems         QuotationItem[]
+  saleItems              SaleItem[]
+  salesOrderItems        SalesOrderItem[]
+  stockMovements         StockMovement[]
+  transferItems          TransferItem[]
 
   @@index([imei])
   @@index([barcode])
@@ -606,21 +628,21 @@ model Inventory {
 model BarcodeSequence {
   id         String   @id @default(cuid())
   companyId  String   @unique
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   lastNumber Int      @default(0)
   updatedAt  DateTime @updatedAt
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 model IMEIRecord {
   id          String     @id @default(cuid())
   companyId   String
-  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   imei        String
   inventoryId String?
-  inventory   Inventory? @relation(fields: [inventoryId], references: [id])
   action      String
   notes       String?
   createdAt   DateTime   @default(now())
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventory   Inventory? @relation(fields: [inventoryId], references: [id])
 
   @@index([imei])
   @@index([companyId])
@@ -629,16 +651,16 @@ model IMEIRecord {
 model StockMovement {
   id           String    @id @default(cuid())
   companyId    String
-  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   inventoryId  String
-  inventory    Inventory @relation(fields: [inventoryId], references: [id])
-  movementType String // purchase | sale | repair | refurbish | transfer | adjustment
+  movementType String
   branchId     String
-  branch       Branch    @relation(fields: [branchId], references: [id])
   userId       String?
   referenceId  String?
   quantity     Int       @default(1)
   createdAt    DateTime  @default(now())
+  branch       Branch    @relation(fields: [branchId], references: [id])
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventory    Inventory @relation(fields: [inventoryId], references: [id])
 
   @@index([inventoryId])
   @@index([companyId])
@@ -647,23 +669,22 @@ model StockMovement {
 }
 
 model Transfer {
-  id                    String    @id @default(cuid())
+  id                    String         @id @default(cuid())
   companyId             String
-  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   fromBranchId          String
-  fromBranch            Branch    @relation("TransferFrom", fields: [fromBranchId], references: [id])
   toBranchId            String
-  toBranch              Branch    @relation("TransferTo", fields: [toBranchId], references: [id])
   createdById           String
-  createdBy             User      @relation(fields: [createdById], references: [id])
-  status                String    @default("pending") // pending | approved | completed | cancelled
+  status                String         @default("pending")
   approvedById          String?
   approvedAt            DateTime?
-  transferMarginPercent Float     @default(0)
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  transferItems TransferItem[]
+  transferMarginPercent Float          @default(0)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  company               Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy             User           @relation(fields: [createdById], references: [id])
+  fromBranch            Branch         @relation("TransferFrom", fields: [fromBranchId], references: [id])
+  toBranch              Branch         @relation("TransferTo", fields: [toBranchId], references: [id])
+  transferItems         TransferItem[]
 
   @@index([companyId])
 }
@@ -671,27 +692,26 @@ model Transfer {
 model TransferItem {
   id          String    @id @default(cuid())
   transferId  String
-  transfer    Transfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
   inventoryId String
   inventory   Inventory @relation(fields: [inventoryId], references: [id])
+  transfer    Transfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  @@index([transferId])
+  @@index([inventoryId])
 }
 
 /// TODO(phase-decimal): migrate monetary `Float` fields (e.g. totalAmount, cargoCost, totalAmountUsd, cargoCostUsd) to Prisma `Decimal`; keep arithmetic in `src/utils/money.ts`.
 model Purchase {
-  id                        String    @id @default(cuid())
+  id                        String           @id @default(cuid())
   companyId                 String
-  company                   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   supplierId                String?
-  supplier                  Supplier? @relation(fields: [supplierId], references: [id])
   customerId                String?
-  customer                  Customer? @relation(fields: [customerId], references: [id])
   branchId                  String
-  branch                    Branch    @relation(fields: [branchId], references: [id])
   totalAmount               Float
-  cargoCost                 Float     @default(0)
-  taxAmount                 Float     @default(0)
-  otherCosts                Float     @default(0)
-  currency                  String    @default("USD")
+  cargoCost                 Float            @default(0)
+  taxAmount                 Float            @default(0)
+  otherCosts                Float            @default(0)
+  currency                  String           @default("USD")
   /// Trading-grade audit aliases (safe additions). Same meaning as `currency` / `exchangeRateAtTransaction`.
   purchaseCurrency          String?
   /// Normalized totals in USD (ledger); optional for legacy rows — COALESCE with raw amounts when currency was USD
@@ -701,13 +721,16 @@ model Purchase {
   exchangeRateAtTransaction Float?
   /// Alias of `exchangeRateAtTransaction` for purchases (auditable intent).
   exchangeRateAtPurchase    Float?
-  status                    String    @default("pending")
+  status                    String           @default("pending")
   notes                     String?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
-
-  purchaseItems    PurchaseItem[]
-  inventoryBatches InventoryBatch[]
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+  inventoryBatches          InventoryBatch[]
+  branch                    Branch           @relation(fields: [branchId], references: [id])
+  company                   Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer                  Customer?        @relation(fields: [customerId], references: [id])
+  supplier                  Supplier?        @relation(fields: [supplierId], references: [id])
+  purchaseItems             PurchaseItem[]
 
   @@index([companyId])
 }
@@ -715,7 +738,6 @@ model Purchase {
 model PurchaseItem {
   id          String   @id @default(cuid())
   purchaseId  String
-  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   imei        String
   /// phone | part | accessory
   productType String   @default("phone")
@@ -726,23 +748,23 @@ model PurchaseItem {
   condition   String
   price       Float
   quantity    Int      @default(1)
+  purchase    Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId])
 }
 
 /// TODO(phase-decimal): migrate monetary `Float` fields (e.g. totalAmount, profit, totalAmountUsd, profitUsd) to Prisma `Decimal`; keep arithmetic in `src/utils/money.ts`.
 /// DEPRECATED — use Invoice as the operational billing source of truth.
 /// Kept temporarily for legacy compatibility and historical migration bridges.
 model Sale {
-  id                        String    @id @default(cuid())
+  id                        String     @id @default(cuid())
   companyId                 String
-  company                   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branchId                  String
-  branch                    Branch    @relation(fields: [branchId], references: [id])
   customerId                String?
-  customer                  Customer? @relation(fields: [customerId], references: [id])
   totalAmount               Float
-  profit                    Float     @default(0)
+  profit                    Float      @default(0)
   /// ISO currency of totalAmount / profit (defaults USD for legacy)
-  currency                  String    @default("USD")
+  currency                  String     @default("USD")
   /// Ledger-normalized amounts in USD; optional on legacy rows
   totalAmountUsd            Float?
   profitUsd                 Float?
@@ -750,19 +772,23 @@ model Sale {
   exchangeRateAtTransaction Float?
   /// Pricing method snapshot used when this sale was created (audit safety).
   pricingMethodUsed         String?
-  paymentMethod             String    @default("cash")
-  status                    String    @default("completed")
+  paymentMethod             String     @default("cash")
+  status                    String     @default("completed")
   notes                     String?
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
-
-  saleItems  SaleItem[]
-  warranties Warranty[]
-
-  // Sales Orders + Invoicing (migration bridge)
-  invoices Invoice[] @relation("InvoiceSale")
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+  invoices                  Invoice[]  @relation("InvoiceSale")
+  branch                    Branch     @relation(fields: [branchId], references: [id])
+  company                   Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer                  Customer?  @relation(fields: [customerId], references: [id])
+  saleItems                 SaleItem[]
+  warranties                Warranty[]
 
   @@index([companyId])
+  @@index([branchId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 /// DEPRECATED — use InvoiceItem for billing/profit reporting.
@@ -770,9 +796,7 @@ model Sale {
 model SaleItem {
   id                String    @id @default(cuid())
   saleId            String
-  sale              Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
   inventoryId       String
-  inventory         Inventory @relation(fields: [inventoryId], references: [id])
   imei              String
   sellingPrice      Float
   /// Cost basis in sale transaction currency (legacy / display); COGS audit uses costUsdUsed.
@@ -786,44 +810,39 @@ model SaleItem {
   profitUsd         Float?
   /// Snapshot of company pricing method when the sale was posted.
   pricingMethodUsed String?
+  inventory         Inventory @relation(fields: [inventoryId], references: [id])
+  sale              Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([inventoryId])
 }
 
-// =============================================================================
-// Sales Orders + Invoicing (Phase 12)
-// =============================================================================
-
 model SalesOrder {
-  id         String    @id @default(cuid())
-  companyId  String
-  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String
-  branch     Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-
-  orderNumber String?
-  status      String  @default("draft") // draft | confirmed | cancelled | invoiced
-  notes       String?
-
-  currency            String @default("USD")
+  id                  String           @id @default(cuid())
+  companyId           String
+  branchId            String
+  customerId          String?
+  orderNumber         String?
+  status              String           @default("draft")
+  notes               String?
+  currency            String           @default("USD")
   /// Units of `currency` per 1 USD at order time (snapshot); 1 for USD
   exchangeRateAtOrder Float?
-
-  subtotal        Float  @default(0)
-  discountPercent Float  @default(0)
-  totalAmount     Float  @default(0)
-  totalAmountUsd  Float?
-
-  createdById String?
-  createdBy   User?     @relation("SalesOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  confirmedAt DateTime?
-  invoicedAt  DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  items    SalesOrderItem[]
-  invoices Invoice[]
+  subtotal            Float            @default(0)
+  discountPercent     Float            @default(0)
+  totalAmount         Float            @default(0)
+  totalAmountUsd      Float?
+  createdById         String?
+  confirmedAt         DateTime?
+  invoicedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  invoices            Invoice[]
+  branch              Branch           @relation(fields: [branchId], references: [id])
+  company             Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy           User?            @relation("SalesOrderCreatedBy", fields: [createdById], references: [id])
+  customer            Customer?        @relation(fields: [customerId], references: [id])
+  items               SalesOrderItem[]
 
   @@unique([companyId, orderNumber])
   @@index([companyId])
@@ -835,18 +854,15 @@ model SalesOrder {
 model SalesOrderItem {
   id           String     @id @default(cuid())
   salesOrderId String
+  inventoryId  String?
+  imei         String?
+  description  String?
+  quantity     Int        @default(1)
+  unitPrice    Float      @default(0)
+  lineTotal    Float      @default(0)
+  createdAt    DateTime   @default(now())
+  inventory    Inventory? @relation(fields: [inventoryId], references: [id])
   salesOrder   SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
-
-  inventoryId String?
-  inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
-  imei        String?
-
-  description String?
-  quantity    Int     @default(1)
-  unitPrice   Float   @default(0)
-  lineTotal   Float   @default(0)
-
-  createdAt DateTime @default(now())
 
   @@index([salesOrderId])
   @@index([inventoryId])
@@ -854,47 +870,38 @@ model SalesOrderItem {
 }
 
 model Invoice {
-  id         String    @id @default(cuid())
-  companyId  String
-  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  branchId   String
-  branch     Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-
-  salesOrderId String?
-  salesOrder   SalesOrder? @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  id                        String        @id @default(cuid())
+  companyId                 String
+  branchId                  String
+  customerId                String?
+  salesOrderId              String?
   /// Optional link to legacy POS `Sale` for compatibility during migration.
-  saleId       String?
-  sale         Sale?       @relation("InvoiceSale", fields: [saleId], references: [id], onDelete: SetNull)
-
-  invoiceNumber String?
-  status        String  @default("unpaid") // unpaid | partial | paid | void
-  notes         String?
-
-  currency                  String @default("USD")
+  saleId                    String?
+  invoiceNumber             String?
+  status                    String        @default("unpaid")
+  notes                     String?
+  currency                  String        @default("USD")
   /// Units of `currency` per 1 USD at posting time; 1 for USD
   exchangeRateAtTransaction Float?
-
-  subtotal        Float  @default(0)
-  discountPercent Float  @default(0)
-  totalAmount     Float  @default(0)
-  totalAmountUsd  Float?
-
-  amountPaid    Float  @default(0)
-  amountPaidUsd Float?
-
-  profit    Float  @default(0)
-  profitUsd Float?
-
-  createdById String?
-  createdBy   User?   @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  items    InvoiceItem[]
-  payments Payment[]
+  subtotal                  Float         @default(0)
+  discountPercent           Float         @default(0)
+  totalAmount               Float         @default(0)
+  totalAmountUsd            Float?
+  amountPaid                Float         @default(0)
+  amountPaidUsd             Float?
+  profit                    Float         @default(0)
+  profitUsd                 Float?
+  createdById               String?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  branch                    Branch        @relation(fields: [branchId], references: [id])
+  company                   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy                 User?         @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  customer                  Customer?     @relation(fields: [customerId], references: [id])
+  sale                      Sale?         @relation("InvoiceSale", fields: [saleId], references: [id])
+  salesOrder                SalesOrder?   @relation(fields: [salesOrderId], references: [id])
+  items                     InvoiceItem[]
+  payments                  Payment[]
 
   @@unique([companyId, invoiceNumber])
   @@index([companyId])
@@ -904,30 +911,25 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id        String  @id @default(cuid())
-  invoiceId String
-  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-
-  inventoryId String?
-  inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
-  imei        String?
-
-  description String?
-  quantity    Int     @default(1)
-
+  id                String     @id @default(cuid())
+  invoiceId         String
+  inventoryId       String?
+  imei              String?
+  description       String?
+  quantity          Int        @default(1)
   /// Transaction currency values
-  costPrice Float @default(0)
-  salePrice Float @default(0)
-  profit    Float @default(0)
-
+  costPrice         Float      @default(0)
+  salePrice         Float      @default(0)
+  profit            Float      @default(0)
   /// Locked USD audit values
   costUsdUsed       Float?
   revenueUsd        Float?
   profitUsd         Float?
   /// Optional refurbishing cost (USD) included in COGS for this line.
   refurbCostUsdUsed Float?
-
-  createdAt DateTime @default(now())
+  createdAt         DateTime   @default(now())
+  inventory         Inventory? @relation(fields: [inventoryId], references: [id])
+  invoice           Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([inventoryId])
@@ -935,51 +937,49 @@ model InvoiceItem {
 }
 
 model Repair {
-  id               String    @id @default(cuid())
+  id               String       @id @default(cuid())
   companyId        String
-  company          Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   /// Branch isolation (Phase 2): nullable for legacy rows; branch users must only access their own branch.
   branchId         String?
-  branch           Branch?   @relation(fields: [branchId], references: [id], onDelete: Restrict)
   imei             String
   faultDescription String
   technicianId     String
-  technician       User      @relation(fields: [technicianId], references: [id])
   customerId       String?
-  customer         Customer? @relation(fields: [customerId], references: [id])
   repairCost       Float
-  status           String    @default("pending") // received | diagnosing | waiting_parts | repairing | testing | completed
+  status           String       @default("pending")
   notes            String?
   photoUrl         String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-
-  repairParts RepairPart[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  branch           Branch?      @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  company          Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer         Customer?    @relation(fields: [customerId], references: [id])
+  technician       User         @relation(fields: [technicianId], references: [id])
+  repairParts      RepairPart[]
 
   @@index([companyId])
   @@index([branchId])
 }
 
 model RefurbishJob {
-  id             String       @id @default(cuid())
-  companyId      String
-  company        Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(cuid())
+  companyId          String
   /// Branch isolation (Phase 2): nullable for legacy rows; branch users must only access their own branch.
-  branchId       String?
-  branch         Branch?      @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  incomingDevice String
-  partsUsed      String?
-  laborCost      Float
-  finalCondition String
-  deviceGradeId  String?
-  deviceGrade    DeviceGrade? @relation(fields: [deviceGradeId], references: [id])
-  technicianId   String
-  technician     User         @relation(fields: [technicianId], references: [id])
-  status         String       @default("pending") // pending | in_progress | completed
-  notes          String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
+  branchId           String?
+  incomingDevice     String
+  partsUsed          String?
+  laborCost          Float
+  finalCondition     String
+  deviceGradeId      String?
+  technicianId       String
+  status             String              @default("pending")
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  branch             Branch?             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  deviceGrade        DeviceGrade?        @relation(fields: [deviceGradeId], references: [id])
+  technician         User                @relation(fields: [technicianId], references: [id])
   refurbishmentTests RefurbishmentTest[]
 
   @@index([companyId])
@@ -997,43 +997,34 @@ model ExchangeRate {
 }
 
 model Currency {
-  id        String  @id @default(cuid())
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  code      String
-
+  id             String            @id @default(cuid())
+  companyId      String
+  code           String
   /// Display symbol (e.g. $, د.إ). Optional; clients may fall back to code.
   symbol         String?
   /// Optional presentation hint: `symbol_first` | `code_suffix` | `narrow`.
   displayFormat  String?
-
   /// forex | crypto | commodity | supplier
-  type           String @default("forex")
+  type           String            @default("forex")
   /// Provider identifier e.g. exchangerate.host | binance | manual
-  sourceProvider String @default("manual")
-
+  sourceProvider String            @default("manual")
   /// Live rate vs USD pivot (1 USD = baseRate * code)
-  baseRate Float @default(0)
-
+  baseRate       Float             @default(0)
   /// Previous `finalRate` snapshot for change% calculations
-  previousRate Float?
-
+  previousRate   Float?
   /// Optional market price (manual or imported) - quote per 1 USD (same basis as rates)
-  marketPrice Float?
-
-  marginPercent Float @default(0)
-  finalRate     Float @default(0)
-
+  marketPrice    Float?
+  marginPercent  Float             @default(0)
+  finalRate      Float             @default(0)
   /// true = auto (finalRate computed), false = manual (finalRate = manualRate)
-  isAuto     Boolean @default(true)
-  manualRate Float?
-
+  isAuto         Boolean           @default(true)
+  manualRate     Float?
   /// When live feed last updated baseRate for this currency
-  lastUpdatedAt DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  histories CurrencyHistory[]
+  lastUpdatedAt  DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  histories      CurrencyHistory[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1045,14 +1036,14 @@ model Currency {
 model SupplierFxRate {
   id           String   @id @default(cuid())
   companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   supplierId   String
-  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
   currencyCode String
   rate         Float
   effectiveAt  DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@unique([supplierId, currencyCode])
   @@index([companyId])
@@ -1065,11 +1056,11 @@ model SupplierFxRate {
 model CurrencyHistory {
   id           String   @id @default(cuid())
   companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   currencyCode String
-  currency     Currency @relation(fields: [companyId, currencyCode], references: [companyId, code], onDelete: Cascade)
   rate         Float
   date         DateTime @default(now())
+  currency     Currency @relation(fields: [companyId, currencyCode], references: [companyId, code], onDelete: Cascade)
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([companyId, currencyCode])
@@ -1081,13 +1072,13 @@ model CurrencyHistory {
 model ExchangeRateHistory {
   id           String   @id @default(cuid())
   companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   fromCurrency String
   toCurrency   String
   rate         Float
   date         DateTime @default(now())
-  source       String   @default("derived") // derived | manual | external
+  source       String   @default("derived")
   createdAt    DateTime @default(now())
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([companyId, date])
@@ -1100,8 +1091,7 @@ model ExchangeRateHistory {
 /// - Fallback preference: verified > auto-generated > English.
 model Translation {
   id              String   @id @default(cuid())
-  companyId        String
-  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId       String
   key             String
   languageCode    String
   value           String
@@ -1109,6 +1099,7 @@ model Translation {
   isVerified      Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, key, languageCode])
   @@index([companyId])
@@ -1119,7 +1110,6 @@ model Translation {
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
   action    String
   entity    String
   entityId  String?
@@ -1129,6 +1119,7 @@ model AuditLog {
   newValue  String?
   ipAddress String?
   createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([branchId])
@@ -1139,7 +1130,6 @@ model AuditLog {
 model StockAlert {
   id        String   @id @default(cuid())
   companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   type      String   @default("low_stock")
   brand     String
   model     String
@@ -1149,6 +1139,7 @@ model StockAlert {
   threshold Int      @default(3)
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -1156,16 +1147,16 @@ model StockAlert {
 model FileUpload {
   id           String   @id @default(cuid())
   companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   filename     String
   originalName String
   mimeType     String
   size         Int
   path         String
-  entityType   String // repair | supplier | device
+  entityType   String
   entityId     String?
   uploadedBy   String?
   createdAt    DateTime @default(now())
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
 }
@@ -1173,25 +1164,28 @@ model FileUpload {
 model ActivityLog {
   id         String   @id @default(cuid())
   userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
   action     String
   entityType String
   entityId   String?
   timestamp  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([timestamp])
+  @@index([userId])
 }
 
 model Incident {
-  id         String   @id @default(cuid())
-  companyId  String?
-  errorCode  String
-  summary    String
-  severity   String   @default("MEDIUM") // LOW | MEDIUM | HIGH
-  status     String   @default("open")   // open | resolved
+  id           String   @id @default(cuid())
+  companyId    String?
+  errorCode    String
+  summary      String
+  severity     String   @default("MEDIUM")
+  status       String   @default("open")
   aiSuggestion String?
-  source     String   @default("system") // system | sentry | manual
-  metadata   Json?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  source       String   @default("system")
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@index([companyId])
   @@index([errorCode])
@@ -1202,20 +1196,19 @@ model Incident {
 model Warranty {
   id            String   @id @default(cuid())
   companyId     String
-  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   imei          String
   saleId        String?
-  sale          Sale?    @relation(fields: [saleId], references: [id])
   warrantyStart DateTime
   warrantyEnd   DateTime
   notes         String?
   createdAt     DateTime @default(now())
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sale          Sale?    @relation(fields: [saleId], references: [id])
 
   @@unique([companyId, imei])
   @@index([companyId])
 }
 
-// Phase 6 AI Intelligence
 model TACCache {
   id             String   @id @default(cuid())
   tac            String   @unique
@@ -1233,7 +1226,7 @@ model TACCache {
 }
 
 model DeviceSpecification {
-  id             String        @id @default(cuid())
+  id             String          @id @default(cuid())
   brand          String
   model          String
   chipset        String?
@@ -1244,11 +1237,10 @@ model DeviceSpecification {
   releaseYear    Int?
   deviceCategory String?
   phoneVariantId String?
-  phoneVariant   PhoneVariant? @relation(fields: [phoneVariantId], references: [id])
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  features DeviceFeature[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  features       DeviceFeature[]
+  phoneVariant   PhoneVariant?   @relation(fields: [phoneVariantId], references: [id])
 
   @@unique([brand, model])
 }
@@ -1256,10 +1248,10 @@ model DeviceSpecification {
 model DeviceFeature {
   id           String              @id @default(cuid())
   specId       String
-  spec         DeviceSpecification @relation(fields: [specId], references: [id], onDelete: Cascade)
   featureKey   String
   featureValue String
   createdAt    DateTime            @default(now())
+  spec         DeviceSpecification @relation(fields: [specId], references: [id], onDelete: Cascade)
 
   @@index([specId])
 }
@@ -1267,13 +1259,13 @@ model DeviceFeature {
 model IMEIHistory {
   id          String   @id @default(cuid())
   companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   imei        String
-  actionType  String // purchase | repair | refurbish | sale | transfer
+  actionType  String
   location    String?
   userId      String?
   referenceId String?
   timestamp   DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([imei])
   @@index([timestamp])
@@ -1293,7 +1285,6 @@ model MarketPrice {
   @@index([brand, model])
 }
 
-// Phase 8 - Installation system
 model SystemConfig {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -1301,37 +1292,35 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
 }
 
-// Phase 9 - AI Business Automation
 model AIAlert {
   id        String   @id @default(cuid())
   companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   /// Branch isolation (Phase 2): nullable for tenant-wide alerts; branch users only see their branch alerts.
   branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  type      String // high_profit | repair_spike | fast_selling | inventory_risk | price_optimization
+  type      String
   title     String
   message   String
-  severity  String   @default("info") // info | warning | success
-  data      String? // extra context
+  severity  String   @default("info")
+  data      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  branch    Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([createdAt])
   @@index([branchId])
 }
 
-// Phase 10 - Platform API & Extension Ecosystem
 model ApiKey {
   id          String    @id @default(cuid())
   companyId   String
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   name        String
   key         String    @unique
-  permissions String // read_inventory, create_sales, read_reports, etc. (comma-separated)
+  permissions String
   lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([key])
@@ -1340,12 +1329,12 @@ model ApiKey {
 model Webhook {
   id        String   @id @default(cuid())
   companyId String
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   url       String
-  eventType String // sale.completed | repair.completed | inventory.updated | low_stock.alert
+  eventType String
   secret    String
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([eventType])
@@ -1354,59 +1343,49 @@ model Webhook {
 model IntegrationLog {
   id              String   @id @default(cuid())
   companyId       String
-  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  integrationType String // api | webhook | ecommerce | accounting | shipping
+  integrationType String
   requestPayload  String?
   responseStatus  Int?
   responseBody    String?
   errorMessage    String?
   timestamp       DateTime @default(now())
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([timestamp])
 }
 
 model MarketplaceApp {
-  id          String   @id @default(cuid())
+  id          String               @id @default(cuid())
   appName     String
   developer   String
   description String?
   permissions String
   webhookUrl  String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  installs MarketplaceInstall[]
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  installs    MarketplaceInstall[]
 }
 
 model MarketplaceInstall {
   id          String         @id @default(cuid())
   companyId   String
   appId       String
-  app         MarketplaceApp @relation(fields: [appId], references: [id], onDelete: Cascade)
   config      String?
   installedAt DateTime       @default(now())
+  app         MarketplaceApp @relation(fields: [appId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, appId])
   @@index([companyId])
 }
 
-// =============================================================================
-// ERP EXTENSION — Database Architecture (Phase 11)
-// Extends schema for phone refurbishing business with IMEI tracking.
-// =============================================================================
-
-// --- 1. IMEI Intelligence System ---
-
 model DeviceHistory {
   id          String     @id @default(cuid())
   companyId   String
-  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
   inventoryId String?
-  inventory   Inventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
   imei        String
-  action      String // purchase | repair | refurbish | sale | transfer | grade_change
+  action      String
   fromStatus  String?
   toStatus    String?
   fromGrade   String?
@@ -1419,6 +1398,8 @@ model DeviceHistory {
   notes       String?
   metadata    String?
   createdAt   DateTime   @default(now())
+  company     Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  inventory   Inventory? @relation(fields: [inventoryId], references: [id])
 
   @@index([imei])
   @@index([companyId])
@@ -1426,64 +1407,59 @@ model DeviceHistory {
   @@index([createdAt])
 }
 
-// --- 2. Smart Inventory System ---
-
 model InventoryLocation {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   branchId  String
-  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  name      String // e.g. "Shelf A1", "Warehouse Zone B"
+  name      String
   code      String?
-  type      String   @default("shelf") // shelf | zone | bin | counter
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  parts InventoryPart[]
+  type      String          @default("shelf")
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  branch    Branch          @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  parts     InventoryPart[]
 
   @@unique([branchId, code])
   @@index([branchId])
 }
 
 model InventoryBatch {
-  id          String    @id @default(cuid())
+  id          String          @id @default(cuid())
   purchaseId  String?
-  purchase    Purchase? @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
-  batchNumber String    @unique
-  receivedAt  DateTime  @default(now())
+  batchNumber String          @unique
+  receivedAt  DateTime        @default(now())
   expiryDate  DateTime?
   notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  parts InventoryPart[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  purchase    Purchase?       @relation(fields: [purchaseId], references: [id])
+  parts       InventoryPart[]
 
   @@index([purchaseId])
 }
 
 model InventoryPart {
-  id          String             @id @default(cuid())
+  id          String                  @id @default(cuid())
   companyId   String
-  company     Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branchId    String
-  branch      Branch             @relation(fields: [branchId], references: [id], onDelete: Cascade)
   sku         String
   name        String
-  category    String // part | accessory | tool
-  quantity    Int                @default(0)
-  minQuantity Int                @default(0)
-  unit        String             @default("pcs")
-  unitCost    Float              @default(0)
+  category    String
+  quantity    Int                     @default(0)
+  minQuantity Int                     @default(0)
+  unit        String                  @default("pcs")
+  unitCost    Float                   @default(0)
   locationId  String?
-  location    InventoryLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   batchId     String?
-  batch       InventoryBatch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  isActive    Boolean            @default(true)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-
-  repairParts RepairPart[]
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  batch       InventoryBatch?         @relation(fields: [batchId], references: [id])
+  branch      Branch                  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  company     Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location    InventoryLocation?      @relation(fields: [locationId], references: [id])
   movements   InventoryPartMovement[]
+  repairParts RepairPart[]
 
   @@unique([branchId, sku])
   @@index([companyId])
@@ -1494,53 +1470,48 @@ model InventoryPart {
 model InventoryPartMovement {
   id            String        @id @default(cuid())
   partId        String
-  part          InventoryPart @relation(fields: [partId], references: [id], onDelete: Cascade)
-  movementType  String // in | out | adjust | transfer
+  movementType  String
   quantity      Int
-  referenceType String? // repair | refurbish | purchase
+  referenceType String?
   referenceId   String?
   branchId      String
   userId        String?
   notes         String?
   createdAt     DateTime      @default(now())
+  part          InventoryPart @relation(fields: [partId], references: [id], onDelete: Cascade)
 
   @@index([partId])
   @@index([createdAt])
 }
 
-// --- 3. Repair Management System ---
-
 model RepairPart {
   id        String         @id @default(cuid())
   repairId  String
-  repair    Repair         @relation(fields: [repairId], references: [id], onDelete: Cascade)
   partId    String?
-  part      InventoryPart? @relation(fields: [partId], references: [id], onDelete: SetNull)
-  partName  String // denormalized for history
+  partName  String
   quantity  Int            @default(1)
   unitCost  Float          @default(0)
   totalCost Float          @default(0)
   notes     String?
   createdAt DateTime       @default(now())
+  part      InventoryPart? @relation(fields: [partId], references: [id])
+  repair    Repair         @relation(fields: [repairId], references: [id], onDelete: Cascade)
 
   @@index([repairId])
 }
 
-// --- 4. Refurbishing Pipeline ---
-
 model RefurbishmentTest {
-  id             String       @id @default(cuid())
+  id             String                @id @default(cuid())
   refurbishJobId String
-  refurbishJob   RefurbishJob @relation(fields: [refurbishJobId], references: [id], onDelete: Cascade)
-  testType       String // display | battery | camera | connectivity | cosmetic
-  status         String       @default("pending") // pending | pass | fail
+  testType       String
+  status         String                @default("pending")
   notes          String?
   testedAt       DateTime?
   testedById     String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  results RefurbishmentResult[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  results        RefurbishmentResult[]
+  refurbishJob   RefurbishJob          @relation(fields: [refurbishJobId], references: [id], onDelete: Cascade)
 
   @@index([refurbishJobId])
 }
@@ -1548,26 +1519,24 @@ model RefurbishmentTest {
 model RefurbishmentResult {
   id        String            @id @default(cuid())
   testId    String
-  test      RefurbishmentTest @relation(fields: [testId], references: [id], onDelete: Cascade)
-  field     String // grade_before | grade_after | cosmetic_work | defect_found
+  field     String
   value     String
   createdAt DateTime          @default(now())
+  test      RefurbishmentTest @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
 }
 
-// --- 5. Supplier & Purchasing System ---
-
 model SupplierRating {
   id           String   @id @default(cuid())
   supplierId   String
-  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  rating       Int // 1-5
-  deliveryTime Int? // days
+  rating       Int
+  deliveryTime Int?
   qualityScore Float?
   notes        String?
   orderId      String?
   createdAt    DateTime @default(now())
+  supplier     Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@index([supplierId])
 }
@@ -1575,47 +1544,41 @@ model SupplierRating {
 model PriceHistory {
   id         String    @id @default(cuid())
   supplierId String?
-  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   brand      String
   model      String
   storage    String?
   condition  String?
   price      Float
   recordedAt DateTime  @default(now())
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
 
   @@index([supplierId])
   @@index([brand, model])
 }
 
-// --- 6. Multi-Branch System ---
-
 model BranchPermission {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   canView     Boolean  @default(true)
   canEdit     Boolean  @default(false)
   canTransfer Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, branchId])
   @@index([userId])
   @@index([branchId])
 }
 
-// --- 7. Financial Intelligence System ---
-
 /// TODO(phase-decimal): migrate monetary `Float` fields (amount, amountUsd) to Prisma `Decimal`; keep arithmetic in `src/utils/money.ts`.
 model Expense {
   id                        String   @id @default(cuid())
   companyId                 String
-  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branchId                  String?
-  branch                    Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  category                  String // rent | salary | cargo | misc | (legacy: utilities | parts | labor | shipping | other)
+  category                  String
   amount                    Float
   currency                  String   @default("USD")
   /// Amount normalized to USD (ledger); optional on legacy rows
@@ -1623,11 +1586,13 @@ model Expense {
   /// Units of `currency` per 1 USD at posting time; 1 for USD
   exchangeRateAtTransaction Float?
   description               String?
-  referenceType             String? // repair | refurbish | transfer
+  referenceType             String?
   referenceId               String?
   expenseDate               DateTime @default(now())
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
+  branch                    Branch?  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([expenseDate])
@@ -1637,22 +1602,21 @@ model Expense {
 /// External capital providers (equity investors vs debt lenders).
 /// TODO(phase-decimal): migrate monetary `Float` fields (capitalAmount, related transactions) to Prisma `Decimal`; keep arithmetic in `src/utils/money.ts`.
 model Investor {
-  id              String   @id @default(cuid())
-  companyId       String
-  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name            String
+  id                  String                @id @default(cuid())
+  companyId           String
+  name                String
   /// investor = profit-sharing eligible; lender = principal / interest only (no sharePercentage)
-  type            String   @default("investor")
+  type                String                @default("investor")
   /// Declared / book principal in `currency` (complement cash flows in InvestorTransaction)
-  capitalAmount   Float    @default(0)
-  currency        String   @default("USD")
+  capitalAmount       Float                 @default(0)
+  currency            String                @default("USD")
   /// 0–100 when type is investor; null for lenders
-  sharePercentage Float?
-  startDate       DateTime @default(now())
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
+  sharePercentage     Float?
+  startDate           DateTime              @default(now())
+  active              Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  company             Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   transactions        InvestorTransaction[]
   profitDistributions ProfitDistribution[]
 
@@ -1664,16 +1628,16 @@ model Investor {
 model InvestorTransaction {
   id                        String   @id @default(cuid())
   companyId                 String
-  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   investorId                String
-  investor                  Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
-  type                      String // deposit | withdrawal
+  type                      String
   amount                    Float
   currency                  String   @default("USD")
   amountUsd                 Float?
   exchangeRateAtTransaction Float?
   date                      DateTime @default(now())
   createdAt                 DateTime @default(now())
+  company                   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  investor                  Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([investorId])
@@ -1684,9 +1648,7 @@ model InvestorTransaction {
 model ProfitDistribution {
   id         String   @id @default(cuid())
   companyId  String
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   investorId String
-  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
   /// Amount paid/allocated in USD (ledger currency for distributions)
   amountUsd  Float
   /// Period label for reporting/audit, e.g. "2026-03" or "2026-Q1"
@@ -1694,6 +1656,8 @@ model ProfitDistribution {
   /// Date the distribution was paid/recorded
   date       DateTime @default(now())
   createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  investor   Investor @relation(fields: [investorId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
   @@index([investorId])
@@ -1702,40 +1666,47 @@ model ProfitDistribution {
 }
 
 model Payment {
-  id                        String    @id @default(cuid())
+  id                        String              @id @default(cuid())
   companyId                 String
-  company                   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branchId                  String?
-  branch                    Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
   customerId                String?
-  customer                  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   saleId                    String?
   purchaseId                String?
   invoiceId                 String?
-  invoice                   Invoice?  @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  /// Optional link to an institute fee charge this payment was allocated to.
+  /// Set by the institute payment service which also updates the fee charge's
+  /// `paidAmount` / `balance` / `status` in the same transaction.
+  instituteFeeChargeId      String?
   amount                    Float
-  currency                  String    @default("USD")
+  currency                  String              @default("USD")
   amountUsd                 Float?
   /// Units of `currency` per 1 USD at posting time; 1 for USD
   exchangeRateAtTransaction Float?
-  method                    String    @default("cash") // cash | card | transfer | mobile
+  method                    String              @default("cash")
   reference                 String?
-  status                    String    @default("completed")
-  paidAt                    DateTime  @default(now())
-  createdAt                 DateTime  @default(now())
+  status                    String              @default("completed")
+  paidAt                    DateTime            @default(now())
+  createdAt                 DateTime            @default(now())
+  branch                    Branch?             @relation(fields: [branchId], references: [id])
+  company                   Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customer                  Customer?           @relation(fields: [customerId], references: [id])
+  invoice                   Invoice?            @relation(fields: [invoiceId], references: [id])
+  instituteFeeCharge        InstituteFeeCharge? @relation(fields: [instituteFeeChargeId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([saleId])
   @@index([purchaseId])
   @@index([invoiceId])
+  @@index([instituteFeeChargeId])
+  @@index([branchId])
+  @@index([paidAt])
 }
 
 model ProfitReport {
   id           String   @id @default(cuid())
   companyId    String
-  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   branchId     String?
-  periodType   String // daily | weekly | monthly
+  periodType   String
   periodStart  DateTime
   periodEnd    DateTime
   totalRevenue Float    @default(0)
@@ -1745,8 +1716,502 @@ model ProfitReport {
   profit       Float    @default(0)
   deviceCount  Int      @default(0)
   createdAt    DateTime @default(now())
+  company      Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, branchId, periodType, periodStart])
   @@index([companyId])
   @@index([periodStart])
+}
+
+model InstituteStudent {
+  id          String                @id @default(cuid())
+  companyId   String
+  branchId    String?
+  studentCode String?
+  fullName    String
+  email       String?
+  phone       String?
+  /// Personal / CRM profile (nullable — legacy rows remain valid).
+  gender            String?
+  dateOfBirth       DateTime?
+  profilePhotoUrl   String?
+  nationalId        String?
+  bloodGroup        String?
+  whatsApp          String?
+  addressLine       String?
+  city              String?
+  country           String?
+  fatherName        String?
+  motherName        String?
+  guardianName      String?
+  emergencyContact  String?
+  guardianPhone     String?
+  previousSchool    String?
+  qualification           String?
+  notes                   String?
+  /// NIC/passport or guardian-held ID: type discriminator + number (legacy `nationalId` still supported).
+  identityDocumentType    String?
+  identityDocumentNumber  String?
+  status      String                @default("active")
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  enrollments InstituteEnrollment[]
+  feeCharges  InstituteFeeCharge[]
+  branch      Branch?               @relation(fields: [branchId], references: [id])
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, studentCode])
+  @@index([companyId])
+}
+
+model InstituteCourse {
+  id          String           @id @default(cuid())
+  companyId   String
+  title       String
+  code        String?
+  description String?
+  active      Boolean          @default(true)
+  /// Default tuition charged when a student is enrolled into any batch of this
+  /// course. Optional — leave null and rely on `InstituteBatch.feeOverride`,
+  /// or pass an explicit `fees` array to `enrollStudent()`. Stored as
+  /// Decimal(18,4) for precise money math.
+  defaultFee  Decimal?         @db.Decimal(18, 4)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  batches     InstituteBatch[]
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+model InstituteBatch {
+  id          String                @id @default(cuid())
+  companyId   String
+  courseId    String
+  name        String
+  startsOn    DateTime?
+  endsOn      DateTime?
+  /// Optional per-batch tuition; takes precedence over
+  /// `InstituteCourse.defaultFee` during auto fee generation.
+  feeOverride Decimal?              @db.Decimal(18, 4)
+  /// morning | evening | weekend — drives timetable UX.
+  timingSlot  String?
+  timingLabel String?
+  teacherName String?
+  capacity    Int?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  attendances InstituteAttendance[]
+  exams       InstituteExam[]
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  course      InstituteCourse       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrollments InstituteEnrollment[]
+
+  @@index([companyId])
+  @@index([courseId])
+}
+
+model InstituteEnrollment {
+  id          String                @id @default(cuid())
+  /// Tenant scope. Required for multi-tenant safety; was previously inferred
+  /// only via joins on `student.companyId` / `batch.companyId`.
+  companyId   String
+  studentId   String
+  batchId     String
+  status      String                @default("active")
+  enrolledAt  DateTime              @default(now())
+  admissionDate         DateTime?
+  expectedCompletionDate DateTime?
+  attendances InstituteAttendance[]
+  examResults InstituteExamResult[]
+  feeCharges  InstituteFeeCharge[]
+  batch       InstituteBatch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  company     Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  student     InstituteStudent      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, studentId, batchId])
+  @@index([companyId, batchId])
+  @@index([batchId])
+}
+
+model InstituteFeeCharge {
+  id           String               @id @default(cuid())
+  companyId    String
+  studentId    String
+  /// Optional link to the enrollment that triggered this charge. Auto-populated
+  /// by `enrollStudent()`; manually-issued charges (penalties, ad-hoc fees)
+  /// can leave it null.
+  enrollmentId String?
+  label        String?
+  /// Decimal(18,4) — institute money is stored exactly. Status transitions
+  /// (`pending` → `partial` → `paid`) are driven by `paidAmount` vs `amount`.
+  amount       Decimal              @db.Decimal(18, 4)
+  /// Sum of all allocated payments. Updated transactionally by the institute
+  /// payment service; never edit by hand.
+  paidAmount   Decimal              @default(0) @db.Decimal(18, 4)
+  /// Outstanding balance = amount − paidAmount. Stored (not computed) so that
+  /// reports can index/filter on it without a derived view.
+  balance      Decimal              @db.Decimal(18, 4)
+  currency     String               @default("USD")
+  dueDate      DateTime?
+  status       String               @default("pending")
+  paidAt       DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  company      Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enrollment   InstituteEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  student      InstituteStudent     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payments     Payment[]
+
+  @@index([companyId])
+  @@index([studentId])
+  @@index([enrollmentId])
+  @@index([companyId, status])
+  @@index([companyId, dueDate])
+}
+
+model InstituteAttendance {
+  id           String              @id @default(cuid())
+  companyId    String
+  batchId      String
+  enrollmentId String
+  date         DateTime
+  present      Boolean             @default(true)
+  notes        String?
+  createdAt    DateTime            @default(now())
+  batch        InstituteBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  company      Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  enrollment   InstituteEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, date])
+  @@index([companyId])
+  @@index([batchId])
+}
+
+/// An exam / assessment within a batch (quiz, midterm, final, etc.).
+model InstituteExam {
+  id            String                @id @default(cuid())
+  companyId     String
+  branchId      String?
+  batchId       String
+  title         String
+  /// quiz | assignment | practical | viva | midterm | final
+  type          String                @default("quiz")
+  totalMarks    Int
+  passingMarks  Int
+  examDate      DateTime?
+  /// Weight for weighted-average GPA / aggregate calculations (0–100).
+  weightPercent Int?
+  remarks       String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  results       InstituteExamResult[]
+  batch         InstituteBatch        @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  branch        Branch?               @relation(fields: [branchId], references: [id])
+  company       Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([batchId])
+  @@index([companyId, batchId])
+}
+
+/// A single student's marks in a specific exam.
+model InstituteExamResult {
+  id            String              @id @default(cuid())
+  companyId     String
+  examId        String
+  enrollmentId  String
+  obtainedMarks Int
+  /// Server-calculated: (obtainedMarks / exam.totalMarks) * 100
+  percentage    Decimal             @db.Decimal(5, 2)
+  /// Configurable grade string (A+, A, B, etc.) — set by grading helper.
+  grade         String?
+  /// Optional GPA point value (e.g. 4.0 scale).
+  gpa           Decimal?            @db.Decimal(3, 2)
+  /// pass | fail | absent | withheld
+  status        String              @default("pass")
+  remarks       String?
+  createdAt     DateTime            @default(now())
+  exam          InstituteExam       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  enrollment    InstituteEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, enrollmentId])
+  @@index([companyId])
+  @@index([examId])
+  @@index([enrollmentId])
+  @@index([companyId, enrollmentId])
+}
+
+/// Device root of the catalog hierarchy (Device → Category → Subcategory → Part).
+model PartCatalogSeries {
+  id           String                @id @default(cuid())
+  companyId    String
+  name         String
+  slug         String?
+  sortOrder    Int                   @default(0)
+  /// Optional link to global phone DB model for canonical device identity.
+  phoneModelId String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  categories   PartCatalogCategory[]
+  company      Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  phoneModel   PhoneModel?           @relation(fields: [phoneModelId], references: [id])
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([phoneModelId])
+}
+
+model PartCatalogCategory {
+  id          String                   @id @default(cuid())
+  seriesId    String
+  parentId    String?
+  name        String
+  sortOrder   Int                      @default(0)
+  /// Set only on root categories (parentId null): Major parts | Camera | Small parts buckets.
+  band        PartCatalogCategoryBand?
+  /// Only leaf subcategories (parent set, no children) should allow parts — enforced in services.
+  allowsParts Boolean                  @default(false)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  parent      PartCatalogCategory?     @relation("PartCatalogCategoryHierarchy", fields: [parentId], references: [id])
+  children    PartCatalogCategory[]    @relation("PartCatalogCategoryHierarchy")
+  series      PartCatalogSeries        @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  parts       PartCatalogItem[]
+
+  @@unique([seriesId, parentId, name])
+  @@index([seriesId])
+}
+
+model PartCatalogItem {
+  id              String                         @id @default(cuid())
+  categoryId      String
+  sku             String
+  qualityGrade    PartCatalogQualityGrade        @default(OEM)
+  name            String
+  description     String?
+  oemPartNumber   String?
+  metadata        Json?
+  isActive        Boolean                        @default(true)
+  createdAt       DateTime                       @default(now())
+  updatedAt       DateTime                       @updatedAt
+  category        PartCatalogCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  compatibilities PartCatalogItemCompatibility[]
+
+  @@unique([categoryId, sku, qualityGrade])
+  @@index([categoryId])
+}
+
+/// Compatibility is stored at phone variant granularity (model-wide rules explode to variants on apply).
+model PartCatalogItemCompatibility {
+  id             String          @id @default(cuid())
+  partItemId     String
+  phoneVariantId String
+  createdAt      DateTime        @default(now())
+  partItem       PartCatalogItem @relation(fields: [partItemId], references: [id], onDelete: Cascade)
+  phoneVariant   PhoneVariant    @relation(fields: [phoneVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([partItemId, phoneVariantId])
+  @@index([phoneVariantId])
+}
+
+/// AI / imports / users propose catalog rows; approved mutations run only through apply — never direct AI inserts.
+model PartCatalogSuggestion {
+  id                String                      @id @default(cuid())
+  companyId         String
+  source            PartCatalogSuggestionSource
+  status            PartCatalogSuggestionStatus @default(PENDING)
+  payload           Json
+  submittedByUserId String?
+  reviewerUserId    String?
+  reviewNotes       String?
+  reviewedAt        DateTime?
+  appliedAt         DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+  company           Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewer          User?                       @relation("PartCatalogSuggestionReviewedBy", fields: [reviewerUserId], references: [id])
+  submitter         User?                       @relation("PartCatalogSuggestionSubmittedBy", fields: [submittedByUserId], references: [id])
+
+  @@index([companyId, status])
+}
+
+model SourcingRequest {
+  id              String   @id @default(cuid())
+  companyId       String
+  branchId        String?
+  createdByUserId String?
+  /// Structured line items / filters (JSON) — validated at application layer.
+  structured      Json     @default("{}")
+  customNotes     String?
+  status          String   @default("open")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+}
+
+/// Auto Quotation — pricing band (per company).
+/// A rule matches when `minPrice <= costPrice <= maxPrice`.
+/// Selling price = costPrice + (costPrice * profitPercent / 100).
+model PricingRule {
+  id            String   @id @default(cuid())
+  companyId     String
+  name          String
+  /// Inclusive lower bound for cost price (transaction currency, USD heuristic).
+  minPrice      Float
+  /// Inclusive upper bound for cost price.
+  maxPrice      Float
+  /// Margin to add on top of cost (percent, 0–1000).
+  profitPercent Float
+  /// Soft-disable a rule without deleting it.
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, active])
+  @@index([companyId, minPrice, maxPrice])
+}
+
+/// Auto Quotation — header.
+/// `totalAmount` is the sum of `QuotationItem.sellingPrice * quantity` at generate time.
+model Quotation {
+  id            String          @id @default(cuid())
+  companyId     String
+  /// Optional snapshot of the customer's display name (no FK so quotes survive customer deletes).
+  customerName  String?
+  /// Optional WhatsApp/phone destination, stored for share receipts.
+  customerPhone String?
+  notes         String?
+  totalAmount   Float           @default(0)
+  createdById   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  company       Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items         QuotationItem[]
+
+  @@index([companyId])
+  @@index([createdAt])
+}
+
+/// Auto Quotation — line.
+/// Either `inventoryId` (existing stock row) or free-text `description`+`costPrice`.
+model QuotationItem {
+  id            String     @id @default(cuid())
+  quotationId   String
+  /// Optional link to the underlying Inventory row (for in-stock items).
+  inventoryId   String?
+  /// Free-text fallback when not linked to inventory (e.g. ad-hoc quote line).
+  description   String?
+  quantity      Int        @default(1)
+  costPrice     Float      @default(0)
+  sellingPrice  Float      @default(0)
+  profitPercent Float      @default(0)
+  /// PricingRule used to compute sellingPrice (null when no rule matched and fallback was used).
+  pricingRuleId String?
+  createdAt     DateTime   @default(now())
+  inventory     Inventory? @relation(fields: [inventoryId], references: [id])
+  quotation     Quotation  @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@index([inventoryId])
+}
+
+/// Internal Branch Chat — channel between users.
+///
+/// Three room kinds:
+///  - `BRANCH`     : everyone in a single branch (uses `branchId`).
+///  - `BRANCH_PAIR`: a 1:1 channel between two branches (`branchAId`, `branchBId`,
+///                   stored sorted so lookups are deterministic).
+///  - `COMPANY`    : company-wide channel (no branch refs).
+///
+/// Tenant isolation: every room belongs to exactly one company; cross-company
+/// chat is impossible by construction.
+model ChatRoom {
+  id        String        @id @default(cuid())
+  companyId String
+  /// One of: `BRANCH` | `BRANCH_PAIR` | `COMPANY`. (String for forward-compat.)
+  kind      String
+  /// Display name, cached for UI; recomputed on branch rename via service.
+  name      String
+  /// Set when `kind = BRANCH`. NULL for `BRANCH_PAIR` and `COMPANY`.
+  branchId  String?
+  /// `BRANCH_PAIR` only — the lower-id branch of the pair (sorted asc).
+  branchAId String?
+  /// `BRANCH_PAIR` only — the higher-id branch of the pair (sorted asc).
+  branchBId String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branch    Branch?       @relation("ChatRoomBranch", fields: [branchId], references: [id])
+  branchA   Branch?       @relation("ChatRoomBranchA", fields: [branchAId], references: [id])
+  branchB   Branch?       @relation("ChatRoomBranchB", fields: [branchBId], references: [id])
+  messages  ChatMessage[]
+
+  @@unique([companyId, kind, branchId, branchAId, branchBId], name: "chatroom_company_kind_unique")
+  @@index([companyId])
+  @@index([companyId, kind])
+  @@index([branchId])
+}
+
+/// Internal Branch Chat — a single message inside a `ChatRoom`.
+///
+/// `companyId` is denormalised so cheap tenant-scoped queries (and indices)
+/// don't require a join through `ChatRoom`.
+model ChatMessage {
+  id             String   @id @default(cuid())
+  companyId      String
+  chatRoomId     String
+  /// Sender (User). Kept nullable so deleted users don't blow up history.
+  senderId       String?
+  /// Sender branch at write time — denormalised so the UI can label messages
+  /// by branch even after a user is reassigned.
+  senderBranchId String?
+  /// Plain-text message body. UI is responsible for sanitising / truncating.
+  body           String
+  createdAt      DateTime @default(now())
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  chatRoom       ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  sender         User?    @relation(fields: [senderId], references: [id])
+  senderBranch   Branch?  @relation(fields: [senderBranchId], references: [id])
+
+  @@index([chatRoomId, createdAt])
+  @@index([companyId, createdAt])
+}
+
+enum UserBranchRole {
+  SUPER_ADMIN
+  BRANCH_ADMIN
+  BRANCH_USER
+}
+
+enum PartCatalogQualityGrade {
+  ORIGINAL
+  OEM
+  COPY
+}
+
+/// Root taxonomy bucket under a device (major assemblies vs camera stack vs consumables).
+enum PartCatalogCategoryBand {
+  MAJOR_PARTS
+  CAMERA
+  SMALL_PARTS
+}
+
+enum PartCatalogSuggestionSource {
+  AI
+  IMPORT
+  USER
+}
+
+enum PartCatalogSuggestionStatus {
+  PENDING
+  REJECTED
+  APPLIED
 }

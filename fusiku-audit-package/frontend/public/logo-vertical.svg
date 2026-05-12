@@ -1,0 +1,21 @@
+<svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
+
+<polygon points="80,60 160,45 140,75 110,85 105,100 140,95 120,120 80,115 110,90"
+fill="#C0C0C0"/>
+
+<text x="40" y="170"
+font-family="Arial"
+font-size="36"
+font-weight="700"
+fill="#1f2937">
+FUSIKU
+</text>
+
+<text x="30" y="205"
+font-family="Arial"
+font-size="16"
+fill="#6b7280">
+Think Smart. Play Cool.
+</text>
+
+</svg>

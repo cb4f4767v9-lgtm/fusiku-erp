@@ -8,6 +8,8 @@ import { useNavShell } from '../../contexts/NavShellContext';
 import { useAuth } from '../../hooks/useAuth';
 import { useInputLanguage } from '../../hooks/useInputLanguage';
 import { canAccessModule } from '../../utils/permissions';
+import { sidebarItemVisibleForVertical } from '../../utils/businessVertical';
+import { sanitizeDisplayLabel } from '../../utils/displayLabel';
 const logoIconUrl = '/logo-icon.svg';
 import { SidebarSection } from './SidebarSection';
 
@@ -16,6 +18,7 @@ const initialOpen = Object.fromEntries(sidebarSections.map((s) => [s.id, true]))
 export function Sidebar() {
   const { t } = useTranslation();
   const { companyName, companyLogoUrl } = useBranding();
+  const brandFooterYear = new Date().getFullYear();
   const { sidebarCollapsed, mobileNavOpen, closeMobileNav } = useNavShell();
   const inputLang = useInputLanguage();
   const navigate = useNavigate();
@@ -31,6 +34,14 @@ export function Sidebar() {
       .map((section) => {
         const items = section.items.filter((item) => {
           if (!canAccessModule(user, item.permissionKey)) return false;
+          if (
+            !sidebarItemVisibleForVertical(user, {
+              onlyForVerticals: item.onlyForVerticals,
+              hideForVerticals: item.hideForVerticals,
+            })
+          ) {
+            return false;
+          }
           if (!query) return true;
           const label = t(item.labelKey).toLowerCase();
           return label.includes(query) || item.keywords.some((k) => k.toLowerCase().includes(query));
@@ -59,11 +70,15 @@ export function Sidebar() {
       <div className="sidebar-header sidebar-brand">
         <div className="sidebar-brand-row">
           <span className="sidebar-brand-logoBox" aria-hidden>
-            <img src={companyLogoUrl || logoIconUrl} className="sidebar-logo-horizontal" alt="" />
+            <img
+              src={companyLogoUrl || logoIconUrl}
+              className={`sidebar-logo-horizontal${companyLogoUrl ? '' : ' fusiku-brand-mark'}`}
+              alt=""
+            />
           </span>
           <span className="sidebar-brand-name">{t('brand.name', { defaultValue: 'Fusiku' })}</span>
         </div>
-        <div className="sidebar-brand-slogan">{companyName || t('brand.slogan')}</div>
+        <div className="sidebar-brand-slogan">{sanitizeDisplayLabel(companyName) || t('brand.slogan')}</div>
       </div>
 
       <div className="sidebar-search-wrap">
@@ -108,9 +123,15 @@ export function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="sidebar-footer__cluster">
-          <div className="sidebar-footer__row">
-            <div className="sidebar-copyright">{t('brand.copyrightShort')}</div>
+        <div className="sidebar-footer-brand">
+          <span className="sidebar-footer-brand__logo-wrap" aria-hidden>
+            <img src={logoIconUrl} alt="" className="sidebar-footer-brand__logo fusiku-brand-mark" />
+          </span>
+          <div className="sidebar-footer-brand__text">
+            <div className="sidebar-footer-brand__title">
+              {t('brand.footerCopyright', { year: brandFooterYear })}
+            </div>
+            <div className="sidebar-footer-brand__slogan">{t('brand.slogan')}</div>
           </div>
         </div>
       </div>

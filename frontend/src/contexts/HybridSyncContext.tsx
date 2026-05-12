@@ -46,8 +46,10 @@ export function HybridSyncProvider({ children }: { children: React.ReactNode }) 
   const statusLastFetchAt = useRef(0);
   const statusBackoffUntil = useRef(0);
 
-  const SYNC_STATUS_POLL_MS = 15_000;
-  const SYNC_STATUS_MIN_GAP_MS = 12_000;
+  // Sync status is just a heartbeat for the offline banner; 30s is plenty and
+  // halves the per-minute request volume (was 8 req/min including OPTIONS).
+  const SYNC_STATUS_POLL_MS = 30_000;
+  const SYNC_STATUS_MIN_GAP_MS = 25_000;
   const SYNC_STATUS_429_BACKOFF_MS = 60_000;
   const DISABLE_SYNC_STATUS =
     String((import.meta as any)?.env?.VITE_DISABLE_SYNC_STATUS ?? '').trim() === '1';

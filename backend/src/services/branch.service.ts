@@ -29,6 +29,9 @@ export const branchService = {
     code?: string;
     adminName?: string;
     currency?: string;
+    instituteFeeCurrency?: string | null;
+    instituteReceiptCurrency?: string | null;
+    instituteReportingCurrency?: string | null;
     marginPercent?: number;
     defaultLanguage?: string;
     country?: string;
@@ -65,6 +68,9 @@ export const branchService = {
       code: string;
       adminName: string;
       currency: string;
+      instituteFeeCurrency: string | null;
+      instituteReceiptCurrency: string | null;
+      instituteReportingCurrency: string | null;
       defaultLanguage: string;
       marginPercent: number;
       country: string;

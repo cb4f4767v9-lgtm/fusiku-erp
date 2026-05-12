@@ -6,7 +6,7 @@ import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { AuthShell } from '../components/auth/AuthShell';
 import { AppHeader } from '../components/common/AppHeader';
 import { COUNTRIES } from '../constants/countries';
-import { setupApi } from '../services/api';
+import { authApi, companyApi, setupApi } from '../services/api';
 import { getErrorMessage } from '../utils/getErrorMessage';
 import { useAuth } from '../hooks/useAuth';
 
@@ -15,9 +15,8 @@ type BusinessType =
   | 'Phone Parts'
   | 'Accessories'
   | 'Repair Center'
-  | 'Tools Business'
   | 'Institute'
-  | 'Other';
+  | 'Sourcing';
 
 type Platform = 'Android' | 'iOS' | 'Both';
 
@@ -26,24 +25,29 @@ type Requirement = 'Accounting Only' | 'Inventory + POS' | 'Full ERP';
 function GlassCard({
   selected,
   title,
+  description,
   onClick,
 }: {
   selected?: boolean;
   title: string;
+  description?: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left rounded-2xl p-4 border backdrop-blur-2xl transition ${
+      className={`w-full text-left rounded-2xl p-4 border transition-all duration-200 ${
         selected
-          ? 'bg-white/20 border-white/40 ring-2 ring-cyan-300/40'
-          : 'bg-white/10 border-white/20 hover:bg-white/15'
+          ? 'bg-white/22 border-white/45 ring-2 ring-cyan-300/50 shadow-md shadow-black/15'
+          : 'bg-white/15 border-white/22 hover:bg-white/18 hover:border-white/30'
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-white/90">{title}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-white/92">{title}</div>
+          {description ? <div className="mt-1 text-xs text-white/76">{description}</div> : null}
+        </div>
         {selected ? (
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400/20 ring-1 ring-emerald-300/40">
             <Check size={14} className="text-emerald-200" />
@@ -146,7 +150,7 @@ function CountryMultiSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/10 border border-white/20 ring-1 ring-white/10 shadow-lg shadow-black/10 backdrop-blur-2xl text-sm text-white/90 transition hover:bg-white/15 hover:border-white/30"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white/15 border border-white/22 text-sm text-white/92 transition hover:bg-white/18 hover:border-white/28"
       >
         <div className="flex flex-wrap gap-2">
           {value.length === 0 ? (
@@ -190,12 +194,12 @@ function CountryMultiSelect({
       </div>
 
       {open ? (
-        <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-2xl bg-[#0b1025]/85 border border-white/15 backdrop-blur-2xl shadow-2xl shadow-black/40 overflow-hidden">
+        <div className="absolute left-0 top-full z-50 mt-2 w-full rounded-2xl bg-[#141928] border border-white/18 shadow-2xl shadow-black/40 overflow-hidden">
           <div className="p-3 border-b border-white/10">
-            <div className="flex items-center gap-2 rounded-xl bg-white/10 border border-white/15 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-xl bg-white/12 border border-white/18 px-3 py-2">
               <Search size={16} className="text-white/60" />
               <input
-                className="w-full bg-transparent outline-none text-sm text-white placeholder:text-white/40"
+                className="w-full bg-transparent outline-none text-sm text-white placeholder:text-white/50"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={t('common.search', { defaultValue: 'Search...' })}
@@ -281,12 +285,11 @@ function CountryMultiSelect({
 export default function SetupWizardPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, setSession } = useAuth();
 
   const [step, setStep] = useState(1);
 
-  const [businessType, setBusinessType] = useState<BusinessType | null>(null);
-  const [businessTypeOther, setBusinessTypeOther] = useState('');
+  const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [sourcingCountries, setSourcingCountries] = useState<string[]>([]);
   const [sourcingOther, setSourcingOther] = useState('');
@@ -294,13 +297,23 @@ export default function SetupWizardPage() {
   const [saving, setSaving] = useState(false);
 
   const showOther = sourcingCountries.includes('OTHER');
-  const showBusinessOther = businessType === 'Other';
+  const hasSelection = businessTypes.length > 0;
+
+  const toggleBusinessType = (v: BusinessType) => {
+    setBusinessTypes((cur) => (cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]));
+  };
+
+  const primaryBusinessType = useMemo(() => {
+    // Backward compatible single value used by existing `Company.businessType` logic.
+    // Priority order keeps old nav behavior stable and predictable.
+    const priority: BusinessType[] = ['Mobile Shop', 'Repair Center', 'Phone Parts', 'Accessories', 'Institute', 'Sourcing'];
+    for (const p of priority) if (businessTypes.includes(p)) return p;
+    return businessTypes[0] ?? null;
+  }, [businessTypes]);
 
   const canContinue = useMemo(() => {
     if (step === 1) {
-      if (!businessType) return false;
-      if (businessType === 'Other') return Boolean(businessTypeOther.trim());
-      return true;
+      return hasSelection;
     }
     if (step === 2) return Boolean(platform);
     if (step === 3) {
@@ -310,7 +323,7 @@ export default function SetupWizardPage() {
     }
     if (step === 4) return Boolean(requirements);
     return false;
-  }, [step, businessType, businessTypeOther, platform, sourcingCountries, showOther, sourcingOther, requirements]);
+  }, [step, hasSelection, platform, sourcingCountries, showOther, sourcingOther, requirements]);
 
   const onFinish = async () => {
     if (!token) {
@@ -318,22 +331,39 @@ export default function SetupWizardPage() {
       navigate('/login');
       return;
     }
-    if (!businessType || !platform || !requirements) return;
+    if (!primaryBusinessType || !platform || !requirements) return;
     if (sourcingCountries.length === 0) return;
-    if (businessType === 'Other' && !businessTypeOther.trim()) return;
     if (showOther && !sourcingOther.trim()) return;
 
     setSaving(true);
     try {
       await setupApi.saveProfile({
-        businessType: businessType === 'Other' ? businessTypeOther.trim() : businessType,
+        businessType: primaryBusinessType,
+        businessTypes,
         platform,
         sourcingCountries,
         sourcingOther: showOther ? sourcingOther.trim() : null,
         requirements,
       });
+      try {
+        // Refresh session user so nav/verticals update immediately after setup.
+        const { data } = await authApi.me();
+        const me = data as any;
+        if (me?.id) {
+          setSession(token, me);
+        }
+      } catch {
+        /* ignore refresh failures (offline) */
+      }
       toast.success(t('setup.saved', { defaultValue: 'Setup saved' }));
-      navigate('/pricing', { replace: true, state: { requirements } });
+      // Free trial onboarding: after setup, go straight to dashboard.
+      // If backend later requires an upgrade (trial expired), the API layer will route to /pricing.
+      try {
+        await companyApi.getProfile();
+      } catch {
+        /* ignore (offline) */
+      }
+      navigate('/', { replace: true });
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, t('setup.saveFailed', { defaultValue: 'Failed to save setup' })));
     } finally {
@@ -346,12 +376,12 @@ export default function SetupWizardPage() {
       <AppHeader />
       <div className="min-h-screen w-full flex items-center justify-center overflow-x-hidden overflow-y-auto">
         <div className="w-full max-w-4xl px-6 py-10">
-          <div className="mx-auto max-w-[720px] rounded-2xl bg-white/10 border border-white/20 backdrop-blur-2xl shadow-2xl p-8">
+          <div className="mx-auto max-w-[720px] rounded-2xl bg-white/15 border border-white/22 shadow-2xl p-8">
             <div className="flex items-center justify-between gap-3 mb-6">
-              <div className="text-lg font-semibold text-white/90">
+              <div className="text-lg font-semibold text-white/92">
                 {t('setup.title', { defaultValue: 'Setup Wizard' })}
               </div>
-              <div className="text-sm text-white/60">
+              <div className="text-sm text-white/76">
                 {t('setup.stepOf', { defaultValue: `Step ${step} of 4` }).replace('Step 1 of 4', `Step ${step} of 4`)}
               </div>
             </div>
@@ -368,7 +398,12 @@ export default function SetupWizardPage() {
             {/* Step 1 */}
             {step === 1 ? (
               <div className="space-y-4">
-                <div className="text-sm text-white/70">{t('setup.businessType', { defaultValue: 'Business type' })}</div>
+                <div className="text-sm text-white/82">
+                  {t('setup.businessType', { defaultValue: 'Business type' })}
+                  <div className="mt-1 text-xs text-white/68">
+                    {t('setup.businessTypeMulti', { defaultValue: 'Select all that apply (you can choose multiple).' })}
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(
                     [
@@ -376,36 +411,42 @@ export default function SetupWizardPage() {
                       'Phone Parts',
                       'Accessories',
                       'Repair Center',
-                      'Tools Business',
                       'Institute',
-                      'Other',
+                      'Sourcing',
                     ] as BusinessType[]
-                  ).map((v) => (
-                    <GlassCard key={v} title={v} selected={businessType === v} onClick={() => setBusinessType(v)} />
-                  ))}
-                </div>
-                {showBusinessOther ? (
-                  <div>
-                    <label className="flex flex-col">
-                      <span className="text-xs text-white/70 mb-1">
-                        {t('setup.businessTypeOther', { defaultValue: 'Other business type' })}
-                      </span>
-                      <input
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 outline-none"
-                        value={businessTypeOther}
-                        onChange={(e) => setBusinessTypeOther(e.target.value)}
-                        placeholder={t('setup.businessTypeOtherPlaceholder', { defaultValue: 'Enter your business type' })}
+                  ).map((v) => {
+                    const desc =
+                      v === 'Mobile Shop'
+                        ? 'Phones inventory, POS & IMEI flows'
+                        : v === 'Phone Parts'
+                          ? 'All parts: screws, lens, camera, frames, etc.'
+                          : v === 'Accessories'
+                            ? 'Accessories inventory & POS'
+                            : v === 'Repair Center'
+                              ? 'Repair tickets, jobs & warranty'
+                              : v === 'Institute'
+                                ? 'Students, courses, attendance & fees'
+                                : v === 'Sourcing'
+                                  ? 'Customer demand sourcing workflow'
+                                  : undefined;
+                    return (
+                      <GlassCard
+                        key={v}
+                        title={v}
+                        description={desc}
+                        selected={businessTypes.includes(v)}
+                        onClick={() => toggleBusinessType(v)}
                       />
-                    </label>
-                  </div>
-                ) : null}
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
 
             {/* Step 2 */}
             {step === 2 ? (
               <div className="space-y-4">
-                <div className="text-sm text-white/70">{t('setup.platform', { defaultValue: 'Platform' })}</div>
+                <div className="text-sm text-white/82">{t('setup.platform', { defaultValue: 'Platform' })}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(['Android', 'iOS', 'Both'] as Platform[]).map((v) => (
                     <GlassCard key={v} title={v} selected={platform === v} onClick={() => setPlatform(v)} />
@@ -417,19 +458,20 @@ export default function SetupWizardPage() {
             {/* Step 3 */}
             {step === 3 ? (
               <div className="space-y-4">
-                <div className="text-sm text-white/70">{t('setup.sourcing', { defaultValue: 'Sourcing' })}</div>
+                <div className="text-sm text-white/82">{t('setup.sourcing', { defaultValue: 'Sourcing' })}</div>
                 <CountryMultiSelect value={sourcingCountries} onChange={setSourcingCountries} />
                 {showOther ? (
                   <div>
                     <label className="flex flex-col">
-                      <span className="text-xs text-white/70 mb-1">
+                      <span className="text-xs text-white/78 mb-1">
                         {t('setup.sourcingOther', { defaultValue: 'Other sourcing location' })}
                       </span>
                       <input
-                        className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-sm text-white placeholder:text-white/40 outline-none"
+                        className="w-full px-4 py-3 rounded-xl bg-white/15 border border-white/22 text-sm text-white placeholder:text-white/50 outline-none"
                         value={sourcingOther}
                         onChange={(e) => setSourcingOther(e.target.value)}
-                        placeholder={t('setup.sourcingOtherPlaceholder', { defaultValue: 'Enter custom sourcing location' })}
+                        aria-label={t('setup.sourcingOther', { defaultValue: 'Other sourcing location' })}
+                        placeholder=""
                       />
                     </label>
                   </div>
@@ -440,7 +482,7 @@ export default function SetupWizardPage() {
             {/* Step 4 */}
             {step === 4 ? (
               <div className="space-y-4">
-                <div className="text-sm text-white/70">{t('setup.requirements', { defaultValue: 'Requirements' })}</div>
+                <div className="text-sm text-white/82">{t('setup.requirements', { defaultValue: 'Requirements' })}</div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(['Accounting Only', 'Inventory + POS', 'Full ERP'] as Requirement[]).map((v) => (
                     <GlassCard key={v} title={v} selected={requirements === v} onClick={() => setRequirements(v)} />
@@ -454,7 +496,7 @@ export default function SetupWizardPage() {
                 type="button"
                 onClick={() => setStep((s) => Math.max(1, s - 1))}
                 disabled={step === 1 || saving}
-                className="px-4 py-2 rounded-xl bg-white/10 border border-white/20 text-sm text-white/80 disabled:opacity-50"
+                className="px-4 py-2 rounded-xl bg-white/15 border border-white/22 text-sm text-white/88 disabled:opacity-50"
               >
                 {t('common.back', { defaultValue: 'Back' })}
               </button>

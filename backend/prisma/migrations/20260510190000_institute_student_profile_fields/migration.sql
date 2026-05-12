@@ -1,0 +1,19 @@
+-- Optional extended profile for institute students (additive, backward compatible).
+
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "gender" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "dateOfBirth" TIMESTAMP(3);
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "profilePhotoUrl" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "nationalId" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "bloodGroup" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "whatsApp" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "addressLine" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "city" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "country" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "fatherName" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "motherName" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "guardianName" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "emergencyContact" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "guardianPhone" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "previousSchool" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "qualification" TEXT;
+ALTER TABLE "InstituteStudent" ADD COLUMN IF NOT EXISTS "notes" TEXT;

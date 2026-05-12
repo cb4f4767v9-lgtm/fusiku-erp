@@ -61,12 +61,19 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       try {
         const r = await companyApi.getProfile();
         setProfile(r.data || null);
-      } catch {
-        await new Promise<void>((resolve) => setTimeout(resolve, 400));
-        try {
-          const r2 = await companyApi.getProfile();
-          setProfile(r2.data || null);
-        } catch {
+      } catch (e: unknown) {
+        // One attempt only on hard failures (401/403/500). A second immediate
+        // retry was doubling traffic and could amplify auth / rate-limit issues.
+        const networkish = !(e as { response?: unknown })?.response;
+        if (networkish) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 400));
+          try {
+            const r2 = await companyApi.getProfile();
+            setProfile(r2.data || null);
+          } catch {
+            setProfile(null);
+          }
+        } else {
           setProfile(null);
         }
       } finally {

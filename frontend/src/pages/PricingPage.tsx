@@ -33,6 +33,7 @@ export default function PricingPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [loadingKey, setLoadingKey] = useState<PlanKey | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
 
   const setupRequirements = (location.state as any)?.requirements as string | undefined;
   const recommendedKey = useMemo(() => recommendedFromRequirements(setupRequirements), [setupRequirements]);
@@ -42,24 +43,39 @@ export default function PricingPage() {
       {
         key: 'BASIC',
         name: 'BASIC',
-        priceLabel: '$15/month',
+        priceLabel:
+          billingCycle === 'weekly'
+            ? '$5/week'
+            : billingCycle === 'yearly'
+              ? '$150/year'
+              : '$15/month',
         features: ['Accounting only', '1 branch', 'Basic reports'],
       },
       {
         key: 'PRO',
         name: 'PRO',
-        priceLabel: '$39/month',
+        priceLabel:
+          billingCycle === 'weekly'
+            ? '$13/week'
+            : billingCycle === 'yearly'
+              ? '$390/year'
+              : '$39/month',
         highlight: true,
         features: ['Inventory + POS', 'IMEI tracking', 'Purchase & sales', 'Up to 3 branches'],
       },
       {
         key: 'ENTERPRISE',
         name: 'ENTERPRISE',
-        priceLabel: '$99/month',
+        priceLabel:
+          billingCycle === 'weekly'
+            ? '$33/week'
+            : billingCycle === 'yearly'
+              ? '$990/year'
+              : '$99/month',
         features: ['Full ERP', 'Unlimited branches', 'Repair module', 'Multi-currency', 'AI insights'],
       },
     ],
-    []
+    [billingCycle]
   );
 
   const choose = async (planKey: PlanKey) => {
@@ -70,6 +86,10 @@ export default function PricingPage() {
     }
     setLoadingKey(planKey);
     try {
+      if (billingCycle === 'yearly') {
+        toast(t('pricing.comingSoon', { defaultValue: 'Yearly plan is coming soon' }));
+        return;
+      }
       await billingApi.choosePlan({ planKey });
       toast.success(t('pricing.planSelected', { defaultValue: 'Plan selected' }));
       navigate('/', { replace: true });
@@ -81,7 +101,7 @@ export default function PricingPage() {
   };
 
   return (
-    <AuthShell overflow="auto" topControls="app">
+    <AuthShell overflow="auto">
       <AppHeader />
       <div className="min-h-screen w-full flex items-center justify-center overflow-x-hidden overflow-y-auto">
         <div className="w-full max-w-6xl px-6 lg:px-10 py-12">
@@ -94,8 +114,44 @@ export default function PricingPage() {
               {t('pricing.title', { defaultValue: 'Pricing' })}
             </h1>
             <p className="mt-3 text-sm text-white/70">
-              {t('pricing.subtitle', { defaultValue: 'Start a free trial. Upgrade anytime.' })}
+              {t('pricing.subtitle', { defaultValue: 'Start 2-day free trial — no card required' })}
             </p>
+
+            <div className="mt-6 flex items-center justify-center">
+              <div className="inline-flex rounded-2xl bg-white/10 border border-white/15 p-1 backdrop-blur-2xl">
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('weekly')}
+                  className={`px-4 py-2 rounded-xl text-sm transition ${
+                    billingCycle === 'weekly' ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  {t('pricing.weekly', { defaultValue: 'Weekly' })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('monthly')}
+                  className={`px-4 py-2 rounded-xl text-sm transition ${
+                    billingCycle === 'monthly' ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white'
+                  }`}
+                >
+                  {t('pricing.monthly', { defaultValue: 'Monthly' })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingCycle('yearly')}
+                  disabled
+                  className={`px-4 py-2 rounded-xl text-sm transition ${
+                    'text-white/50 cursor-not-allowed'
+                  }`}
+                >
+                  {t('pricing.yearly', { defaultValue: 'Yearly' })}
+                  <span className="ml-2 text-[11px] text-emerald-200/90">
+                    {t('pricing.yearlyBadge', { defaultValue: 'Coming soon' })}
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">

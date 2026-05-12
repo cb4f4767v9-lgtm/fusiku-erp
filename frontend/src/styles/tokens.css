@@ -1,4 +1,18 @@
 :root {
+  /* ------------------------------------------------------------------------ */
+  /* Fusiku Premium (dashboard/login unified) color system                     */
+  /* ------------------------------------------------------------------------ */
+  --primary: #4f8cff;
+  --primary-2: #7c5cff;
+  --accent: #22d3ee;
+
+  --text-main: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.75);
+  --text-muted: rgba(255, 255, 255, 0.55);
+
+  --glass-bg: rgba(20, 25, 40, 0.75);
+  --glass-strong: rgba(20, 25, 40, 0.9);
+
   /* Colors — cool neutral canvas (Stripe / Shopify–adjacent) */
   --color-bg: #f8fafc;
   --color-surface: #ffffff;
@@ -100,7 +114,7 @@
   --font-section-title-tracking: 0.08em;
 
   --font-section-heading-size: var(--font-size-section);
-  --font-section-heading-weight: 650;
+  --font-section-heading-weight: 600;
   --font-section-heading-line: 1.35;
   --font-section-heading-tracking: -0.02em;
 
@@ -121,7 +135,7 @@
   --ds-card-radius: var(--radius-md);
   --ds-card-shadow: var(--shadow-card);
   --ds-card-shadow-hover: var(--shadow-card-hover);
-  --ds-card-padding: var(--space-4);
+  --ds-card-padding: 18px;
 
   --page-content-max: 100%;
 

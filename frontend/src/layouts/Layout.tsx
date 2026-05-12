@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Menu, PanelLeftClose, PanelLeft, Search } from 'lucide-react';
+import { Bell, Menu, MessageCircle, Search, Sparkles } from 'lucide-react';
 import { Sidebar } from '../components/Sidebar';
 import { TopbarUserMenu } from '../components/TopbarUserMenu';
 import { useSearch } from '../contexts/SearchContext';
@@ -14,14 +14,19 @@ import { TopbarBranchSelector } from '../components/TopbarBranchSelector';
 import { NavShellProvider, useNavShell } from '../contexts/NavShellContext';
 const logoIconUrl = '/logo-icon.svg';
 import { useInputLanguage } from '../hooks/useInputLanguage';
-import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { CommandPalette } from '../components/CommandPalette';
 import { preloadPrimaryRoutes } from '../routes/routePreload';
+import { BranchChat } from '../components/chat/BranchChat';
+import { AIChatBox } from '../components/dashboard/AIChatBox';
+import { sanitizeDisplayLabel } from '../utils/displayLabel';
+import { applyTheme } from '../utils/theme';
+import { OfflineLicenseBlock } from '../components/auth/OfflineLicenseBlock';
 
 function LayoutShell() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { searchQuery, setSearchQuery } = useSearch();
   const { companyName, companyLogoUrl, showPoweredBy } = useBranding();
+  const tenantDisplayName = sanitizeDisplayLabel(companyName) || t('brand.name');
   const { bannerMessage } = useSaasCommercialGate();
   const { mobileNavOpen, closeMobileNav, toggleMobileNav, sidebarCollapsed, toggleSidebarCollapsed } = useNavShell();
   const inputLang = useInputLanguage();
@@ -29,6 +34,33 @@ function LayoutShell() {
   const location = useLocation();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const gPrefixRef = useRef<number | null>(null);
+  const [lightTheme, setLightTheme] = useState(() => {
+    try {
+      return localStorage.getItem('fusiku_theme') === 'light';
+    } catch {
+      return false;
+    }
+  });
+
+  // Branch / AI chat panels — triggers live in the footer; panels float bottom-right
+  // when open. State is owned here so the footer badge can react to socket events.
+  const [branchChatOpen, setBranchChatOpen] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [branchChatUnread, setBranchChatUnread] = useState(0);
+
+  const openBranchChat = () => {
+    setAiChatOpen(false);
+    setBranchChatUnread(0);
+    setBranchChatOpen(true);
+  };
+  const openAiChat = () => {
+    setBranchChatOpen(false);
+    setAiChatOpen(true);
+  };
+
+  useEffect(() => {
+    applyTheme(lightTheme ? 'light' : 'dark');
+  }, [lightTheme]);
 
   const quickLinks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -156,6 +188,7 @@ function LayoutShell() {
     .join(' ');
 
   return (
+    <OfflineLicenseBlock>
     <div className={layoutClass}>
       {mobileNavOpen ? (
         <button
@@ -191,34 +224,46 @@ function LayoutShell() {
         <header className="topbar">
           <div className="topbar-left">
             <div className="topbar-nav-toggles">
+              {/*
+                Single sidebar toggle for all viewports. On mobile it opens the
+                slide-in drawer; on desktop it collapses the sidebar to a rail.
+                Viewport is checked at click time so a window resize doesn't
+                leave the user stuck in the wrong mode.
+              */}
               <button
                 type="button"
-                className="icon-btn topbar-nav-toggles__mobile"
-                aria-expanded={mobileNavOpen}
+                className="icon-btn topbar-nav-toggle"
+                onClick={() => {
+                  const isMobile =
+                    typeof window !== 'undefined' &&
+                    window.matchMedia('(max-width: 900px)').matches;
+                  if (isMobile) toggleMobileNav();
+                  else toggleSidebarCollapsed();
+                }}
+                aria-label={t('layout.toggleSidebar')}
+                title={t('layout.toggleSidebar')}
+                aria-pressed={sidebarCollapsed || mobileNavOpen}
                 aria-controls="app-sidebar"
-                onClick={toggleMobileNav}
-                aria-label={t('layout.openMenu')}
+                aria-expanded={mobileNavOpen}
               >
                 <Menu size={18} aria-hidden />
               </button>
-              <button
-                type="button"
-                className="icon-btn topbar-nav-toggles__desktop"
-                onClick={toggleSidebarCollapsed}
-                aria-label={sidebarCollapsed ? t('layout.expandSidebar') : t('layout.collapseSidebar')}
-              >
-                {sidebarCollapsed ? <PanelLeft size={18} aria-hidden /> : <PanelLeftClose size={18} aria-hidden />}
-              </button>
             </div>
-            <div className="topbar-tenant-brand" aria-hidden={!companyName && !companyLogoUrl}>
-              <img
-                src={companyLogoUrl || logoIconUrl}
-                alt=""
-                className="topbar-tenant-logo"
-                width={32}
-                height={32}
-              />
-              <span className="topbar-tenant-name">{companyName || t('brand.name')}</span>
+            <div className={`topbar-tenant-brand${companyLogoUrl ? '' : ' topbar-tenant-brand--fusiku-default'}`}>
+              {companyLogoUrl ? (
+                <img src={companyLogoUrl} alt="" className="topbar-tenant-logo" width={32} height={32} />
+              ) : (
+                <span className="topbar-tenant-logoBox" aria-hidden>
+                  <img
+                    src={logoIconUrl}
+                    alt=""
+                    className="topbar-tenant-logo fusiku-brand-mark"
+                    width={22}
+                    height={22}
+                  />
+                </span>
+              )}
+              <span className="topbar-tenant-name">{tenantDisplayName}</span>
             </div>
             <div className="topbar-search">
               <Search size={18} />
@@ -265,30 +310,84 @@ function LayoutShell() {
               <Bell size={18} aria-hidden />
             </button>
 
+            <button
+              type="button"
+              className="topbar-theme-toggle"
+              onClick={() => setLightTheme((v) => !v)}
+              aria-label={lightTheme ? 'Switch to dark theme' : 'Switch to light theme'}
+              title={lightTheme ? 'Light' : 'Dark'}
+            >
+              <span className="topbar-theme-toggle__icon" aria-hidden>
+                {lightTheme ? '☀' : '🌙'}
+              </span>
+              <span className="topbar-theme-toggle__label">{lightTheme ? 'Light' : 'Dark'}</span>
+            </button>
+
             <TopbarBranchSelector />
 
             <TopbarCurrencySelector />
 
-            <LanguageSwitcher placement="header" />
-
+            {/* Language now lives inside TopbarUserMenu to reduce topbar clutter. */}
             <TopbarUserMenu />
           </div>
         </header>
 
-        <main className="flex-1 min-w-0" style={{ flex: 1, width: '100%' }}>
-          <div key={`${location.pathname}:${i18n.language}`} className="route-transition">
+        <main className="flex-1 min-w-0 layout-main-shell" style={{ flex: 1, width: '100%' }}>
+          <div className="route-transition">
             <div className="w-full min-w-0">
               <Outlet />
             </div>
           </div>
         </main>
-        {showPoweredBy ? (
-          <footer className="main-footer-powered" role="contentinfo">
-            {t('brand.poweredBy')}
-          </footer>
-        ) : null}
+        <footer className="main-footer-premium" role="contentinfo">
+          {showPoweredBy ? (
+            <span className="main-footer-premium__brand">
+              <span className="brand-powered-mark" aria-hidden />
+              <span className="main-footer-premium__line">{t('brand.poweredBy')}</span>
+            </span>
+          ) : (
+            <span className="main-footer-premium__brand" aria-hidden />
+          )}
+
+          <div className="main-footer-premium__triggers" aria-label={t('chat.launchers', 'Chat launchers')}>
+            <button
+              type="button"
+              className={`footer-icon-btn ${branchChatOpen ? 'is-active' : ''}`}
+              onClick={() => (branchChatOpen ? setBranchChatOpen(false) : openBranchChat())}
+              aria-label={t('chat.open', 'Open chat')}
+              title={t('chat.title', 'Branch Chat')}
+              aria-pressed={branchChatOpen}
+            >
+              <MessageCircle size={14} aria-hidden />
+              {branchChatUnread > 0 && !branchChatOpen ? (
+                <span className="footer-icon-btn__badge" aria-label={`${branchChatUnread} unread`}>
+                  {branchChatUnread > 99 ? '99+' : branchChatUnread}
+                </span>
+              ) : null}
+            </button>
+
+            <button
+              type="button"
+              className={`footer-icon-btn ${aiChatOpen ? 'is-active' : ''}`}
+              onClick={() => (aiChatOpen ? setAiChatOpen(false) : openAiChat())}
+              aria-label={t('aiChat.open', 'Open AI assistant')}
+              title={t('aiChat.title', 'Fusiku AI')}
+              aria-pressed={aiChatOpen}
+            >
+              <Sparkles size={14} aria-hidden />
+            </button>
+          </div>
+        </footer>
       </div>
+
+      <BranchChat
+        open={branchChatOpen}
+        onClose={() => setBranchChatOpen(false)}
+        onUnreadChange={(updater) => setBranchChatUnread(updater)}
+      />
+      <AIChatBox open={aiChatOpen} onClose={() => setAiChatOpen(false)} />
     </div>
+    </OfflineLicenseBlock>
   );
 }
 

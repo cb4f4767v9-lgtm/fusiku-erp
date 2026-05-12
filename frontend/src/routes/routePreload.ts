@@ -20,6 +20,9 @@ export const preloadNewPurchase = once(() =>
 );
 export const preloadSuppliers = once(() => import('../pages/SuppliersPage').then((m) => m.SuppliersPage));
 export const preloadReports = once(() => import('../pages/ReportsPage').then((m) => m.ReportsPage));
+export const preloadInstituteStudents = once(() =>
+  import('../pages/institute/InstituteStudentsPage').then((m) => m.InstituteStudentsPage)
+);
 
 export const preloadPrimaryRoutes = once(async () => {
   await Promise.allSettled([
@@ -29,6 +32,7 @@ export const preloadPrimaryRoutes = once(async () => {
     preloadPurchases(),
     preloadSuppliers(),
     preloadReports(),
+    preloadInstituteStudents(),
   ]);
 });
 

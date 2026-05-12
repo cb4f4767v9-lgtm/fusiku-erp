@@ -1,0 +1,342 @@
+/* ================================================================
+   DataTable — Enterprise reusable table system
+   Supports dark/light, sticky headers, sort, pagination, export
+   ================================================================ */
+
+.dt-root {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  position: relative;
+}
+
+/* ---- Toolbar ---- */
+.dt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.dt-toolbar__start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dt-toolbar__end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.dt-toolbar__btn {
+  padding: 6px 10px !important;
+}
+
+/* ---- Search ---- */
+.dt-search {
+  position: relative;
+  max-width: 320px;
+  flex: 1 1 200px;
+}
+.dt-search__icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.dt-search__input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  font-size: 13.5px;
+  border-radius: var(--radius-control, 8px);
+  border: 1px solid var(--border);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dt-search__input:focus {
+  border-color: var(--brand-1, #4f7cff);
+  box-shadow: 0 0 0 2px rgba(79, 124, 255, 0.18);
+}
+
+/* ---- Table scroll wrapper ---- */
+.dt-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--radius-card, 12px);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.dt-scroll--sticky {
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+.dt-scroll--sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+/* ---- Table ---- */
+.dt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.dt-table thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background: var(--table-header-bg, rgba(15, 23, 42, 0.04));
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+}
+.dt-th--right { text-align: right !important; }
+.dt-th--center { text-align: center !important; }
+.dt-th--sortable {
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.dt-th--sortable:hover {
+  color: var(--text-primary);
+}
+.dt-th--active {
+  color: var(--brand-1, #4f7cff) !important;
+}
+.dt-th__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dt-th__sort-icon {
+  display: inline-flex;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+.dt-th--active .dt-th__sort-icon {
+  opacity: 1;
+}
+
+/* ---- Rows ---- */
+.dt-table tbody td {
+  padding: 10px 14px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.dt-td--right { text-align: right !important; }
+.dt-td--center { text-align: center !important; }
+
+.dt-row {
+  transition: background 0.12s;
+}
+.dt-row:hover {
+  background: var(--table-row-hover, rgba(79, 124, 255, 0.06));
+}
+.dt-row--clickable {
+  cursor: pointer;
+}
+.dt-row--clickable:focus-visible {
+  outline: 2px solid var(--brand-1, #4f7cff);
+  outline-offset: -2px;
+}
+.dt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---- Empty cell ---- */
+.dt-empty-cell {
+  padding: 40px 20px !important;
+  text-align: center;
+  border-bottom: none !important;
+}
+
+/* ---- Pagination ---- */
+.dt-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.dt-pagination__meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.dt-pagination__count {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ---- Loading bar ---- */
+.dt-loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand-1, #4f7cff), transparent);
+  animation: dt-loading-slide 1.2s ease-in-out infinite;
+}
+@keyframes dt-loading-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ---- Status pills (shared) ---- */
+.dt-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.dt-pill--active { background: rgba(34, 197, 94, 0.14); color: #22c55e; }
+.dt-pill--completed, .dt-pill--graduated { background: rgba(59, 130, 246, 0.14); color: #3b82f6; }
+.dt-pill--suspended, .dt-pill--failed { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
+.dt-pill--discontinued { background: rgba(156, 163, 175, 0.14); color: #9ca3af; }
+.dt-pill--leave, .dt-pill--pending { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.dt-pill--inactive { background: rgba(107, 114, 128, 0.14); color: #6b7280; }
+
+/* ---- Responsive column hiding ---- */
+@media (max-width: 1200px) {
+  [data-hide-below="1200"] { display: none; }
+}
+@media (max-width: 1024px) {
+  [data-hide-below="1024"] { display: none; }
+}
+@media (max-width: 768px) {
+  [data-hide-below="768"] { display: none; }
+}
+
+/* ---- Dark mode refinements ---- */
+body:not(.light) .dt-scroll {
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+}
+body:not(.light) .dt-table thead th {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+body:not(.light) .dt-table tbody td {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+body:not(.light) .dt-row:hover {
+  background: rgba(79, 124, 255, 0.08);
+}
+body:not(.light) .dt-search__input {
+  background: rgba(28, 34, 56, 0.8);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* ---- Thumbnail in tables ---- */
+.dt-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+.dt-thumb--placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+}
+
+/* ---- Amount columns ---- */
+.dt-amount { font-variant-numeric: tabular-nums; }
+.dt-amount--due { color: #ef4444; font-weight: 500; }
+.dt-amount--zero { color: var(--text-muted); }
+
+/* ---- Buttons: sm + ghost variants ---- */
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  border-radius: 6px;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary, rgba(15, 23, 42, 0.65));
+}
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.05);
+}
+body:not(.light) .btn-ghost {
+  color: rgba(226, 232, 240, 0.72);
+}
+body:not(.light) .btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ---- Input sm ---- */
+.input-sm, .input.input-sm {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  border-radius: 6px;
+}
+select.input-sm, select.input.input-sm {
+  padding-right: 24px;
+}
+
+/* ---- Status pills (used across exams, results, attendance) ---- */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.status-pill.status-success { background: rgba(34, 197, 94, 0.14); color: #22c55e; }
+.status-pill.status-danger  { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
+.status-pill.status-warning { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+.status-pill.status-info    { background: rgba(59, 130, 246, 0.14); color: #3b82f6; }
+.status-pill.status-muted   { background: rgba(107, 114, 128, 0.14); color: #6b7280; }
+
+body:not(.light) .status-pill.status-success { background: rgba(34, 197, 94, 0.18); color: #4ade80; }
+body:not(.light) .status-pill.status-danger  { background: rgba(239, 68, 68, 0.18); color: #f87171; }
+body:not(.light) .status-pill.status-warning { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+body:not(.light) .status-pill.status-info    { background: rgba(59, 130, 246, 0.18); color: #60a5fa; }
+body:not(.light) .status-pill.status-muted   { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+/* ---- Print ---- */
+@media print {
+  .dt-toolbar,
+  .dt-pagination,
+  .dt-loading-bar { display: none !important; }
+  .dt-scroll { max-height: none; overflow: visible; border: none; }
+  .dt-table { font-size: 11px; }
+  .dt-table thead th { background: #f0f0f0 !important; color: #000 !important; }
+  .dt-table tbody td { color: #000 !important; border-color: #ddd !important; }
+  .status-pill { border: 1px solid #ccc; }
+}

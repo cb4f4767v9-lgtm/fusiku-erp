@@ -1,21 +1,56 @@
 /* FUSIKU design system — typography, 8px spacing scale, surfaces */
 
 :root {
+  /* ------------------------------------------------------------------------ */
+  /* Color system (single source)                                              */
+  /* ------------------------------------------------------------------------ */
+
+  /* Brand */
+  --brand-1: #4f7cff;
+  --brand-2: #7c5cff;
+  --brand-3: #00d4ff;
+
+  /* Light surfaces */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --border: rgba(15, 23, 42, 0.10);
+  --shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+
+  /* Typography tokens (default = light) */
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+
+  /* Glass (default) — keep subtle */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-blur: 8px;
+
+  /* Component radii */
+  --radius-card: 14px;
+  --radius-control: 10px;
+
+  /* Table */
+  --table-header-bg: rgba(15, 23, 42, 0.04);
+  --table-row-hover: rgba(79, 124, 255, 0.08);
+
   --ds-space-1: 8px;
   --ds-space-2: 16px;
   --ds-space-3: 24px;
   --ds-space-4: 32px;
+  --ds-section-gap: 32px;
 
-  --font-h1-size: 24px;
-  --font-h1-weight: 600;
-  --font-h1-line: 1.3;
+  --font-h1-size: 28px;
+  --font-h1-weight: 700;
+  --font-h1-line: 1.25;
 
   --font-h2-size: 20px;
   --font-h2-weight: 600;
   --font-h2-line: 1.35;
 
-  --font-h3-size: 18px;
-  --font-h3-weight: 500;
+  --font-h3-size: 17px;
+  --font-h3-weight: 600;
   --font-h3-line: 1.4;
 
   --font-body-size: 14px;
@@ -24,6 +59,92 @@
 
   --font-small-size: 12px;
   --font-small-line: 1.45;
+}
+
+/* Dark theme variables (app uses body.light toggle; dark = default when not light) */
+body:not(.light) {
+  --bg: #0b1025;
+  --surface: rgba(26, 32, 54, 0.98);
+  --surface-2: rgba(22, 28, 48, 0.96);
+  /** Align with dark surfaces — tokens.css leaves `--bg-card` light-only otherwise cards/error UI go white-on-white. */
+  --bg-card: rgba(17, 24, 39, 0.96);
+  --border: rgba(255, 255, 255, 0.2);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  --text-primary: #ffffff;
+  --text-secondary: rgba(248, 250, 252, 0.92);
+  --text-muted: rgba(226, 232, 240, 0.78);
+
+  --glass-bg: rgba(28, 34, 56, 0.98);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-blur: 0px;
+
+  --table-header-bg: rgba(255, 255, 255, 0.04);
+  --table-row-hover: rgba(79, 124, 255, 0.10);
+}
+
+/* Readable form controls on dark canvas (typed text must not look “washed out”). */
+body:not(.light) .input,
+body:not(.light) input.input:not([type='checkbox']):not([type='radio']),
+body:not(.light) select.input,
+body:not(.light) textarea.input {
+  color: #f9fafb;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+body:not(.light) .input::placeholder,
+body:not(.light) input::placeholder,
+body:not(.light) textarea::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+body:not(.light) .institute-field__label {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+}
+
+body:not(.light) .input--readonly,
+body:not(.light) input.input--readonly {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 500;
+}
+
+body:not(.light) .input:disabled,
+body:not(.light) input.input:disabled,
+body:not(.light) select.input:disabled,
+body:not(.light) textarea.input:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+body:not(.light) .input:focus-visible,
+body:not(.light) select.input:focus-visible,
+body:not(.light) textarea.input:focus-visible {
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.25);
+}
+
+body:not(.light) select.input option {
+  background: #111827;
+  color: #f9fafb;
+}
+
+body:not(.light) .erp-search,
+body:not(.light) .institute-toolbar-select {
+  color: #f9fafb;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+body:not(.light) .erp-search::placeholder {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* App content typography (shell topbar unchanged) */
@@ -37,7 +158,7 @@
 .ds-page-layout {
   display: flex;
   flex-direction: column;
-  gap: var(--ds-space-2);
+  gap: var(--ds-section-gap);
   min-width: 0;
 }
 
@@ -72,10 +193,10 @@
 }
 
 .ds-card {
-  background: var(--bg-card);
-  border: var(--ds-card-border);
-  border-radius: var(--ds-card-radius);
-  box-shadow: var(--ds-card-shadow);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
   padding: var(--ds-space-3);
   box-sizing: border-box;
 }
@@ -109,7 +230,7 @@
 .erp-page-header__subtitle {
   font-size: var(--font-body-size);
   font-weight: var(--font-body-weight);
-  color: var(--text-secondary);
+  color: var(--text-muted);
   max-width: 100%;
 }
 
@@ -151,6 +272,109 @@
   flex-shrink: 0;
   width: 18px;
   height: 18px;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Standard components (global)                                                */
+/* -------------------------------------------------------------------------- */
+
+/* Cards */
+.card,
+.dashboard-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+body:not(.light) .card,
+body:not(.light) .dashboard-card {
+  backdrop-filter: none;
+}
+
+/* Buttons */
+.btn {
+  border-radius: var(--radius-control);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+  border: none;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.03);
+}
+
+/* Tables */
+.data-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14px;
+}
+
+.data-table th {
+  padding: 12px 14px;
+  text-align: start;
+  background: var(--table-header-bg);
+  color: var(--text-secondary);
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.data-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-weight: 450;
+  vertical-align: middle;
+}
+
+body.light .data-table td {
+  color: var(--text-primary);
+}
+
+.data-table th.num,
+.data-table td.num,
+.data-table td.amount,
+.data-table td.price,
+.data-table td.total {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tbody tr:hover td {
+  background: var(--table-row-hover);
+}
+
+/* Sidebar + topbar baseline (no layout changes) */
+.sidebar {
+  background: var(--surface-2);
+  border-right: 1px solid var(--border);
+}
+
+.sidebar .nav-item {
+  color: var(--text-secondary);
+}
+
+.sidebar .nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.topbar {
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+body:not(.light) .topbar {
+  backdrop-filter: none;
 }
 
 .page-header-subtitle {

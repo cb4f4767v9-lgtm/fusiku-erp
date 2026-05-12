@@ -1,0 +1,375 @@
+/* ===== DARK THEME (login-style dark glass) ===== */
+:root {
+  --login-dark-bg:
+    radial-gradient(circle at 20% 30%, rgba(80, 120, 255, 0.35), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(140, 90, 255, 0.30), transparent 40%),
+    radial-gradient(circle at 50% 80%, rgba(0, 200, 255, 0.20), transparent 50%),
+    #0b1020;
+}
+
+/* GLOBAL TEXT IMPROVEMENT */
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* DARK MODE TEXT */
+body:not(.light) {
+  --text-primary: #f3f5fb;
+  --text-secondary: #d1d7e5;
+  --text-muted: #9aa6be;
+}
+
+/* LIGHT MODE TEXT */
+body.light {
+  --text-primary: #1a1d26;
+  --text-secondary: #374151;
+  --text-muted: #6b7280;
+}
+
+/* Only apply the dark-glass background when NOT in light mode */
+body:not(.light) {
+  background: var(--login-dark-bg);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+body:not(.light) .page,
+body:not(.light) .dashboard,
+body:not(.light) .page.dashboard {
+  background: var(--login-dark-bg) !important;
+}
+
+/* Dashboard subtle depth layer */
+body:not(.light) .page.dashboard {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(79, 124, 255, 0.12), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(124, 92, 255, 0.10), transparent 40%),
+    var(--login-dark-bg) !important;
+}
+
+/* Dashboard container sections: no light blocks (dark only) */
+body:not(.light) .dashboard,
+body:not(.light) .main-content,
+body:not(.light) .page {
+  background: transparent !important;
+}
+
+/* Make sure wrappers don’t paint light (dark only) */
+body:not(.light) .app-layout,
+body:not(.light) .main-wrapper,
+body:not(.light) .main-content {
+  background: transparent !important;
+}
+
+/* Modern shell backgrounds must not reintroduce light canvas (dark only) */
+body:not(.light) .app-layout.modern,
+body:not(.light) .app-layout.modern .main-wrapper.modern-main,
+body:not(.light) .app-layout.modern .main-content.modern-content {
+  background: transparent !important;
+}
+
+body:not(.light) .topbar,
+body:not(.light) .app-layout.modern .topbar {
+  background: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Topbar controls: subtle SaaS chips */
+body:not(.light) .topbar-btn,
+body:not(.light) .app-layout.modern .topbar-currency__select,
+body:not(.light) .app-layout.modern .topbar-branch__select select,
+body:not(.light) .app-layout.modern .lang-switcher-btn,
+body:not(.light) .app-layout.modern .topbar-user-trigger,
+body:not(.light) .app-layout.modern .topbar-theme-toggle,
+body:not(.light) .topbar .icon-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: none !important;
+}
+
+.topbar-btn.active {
+  background: linear-gradient(135deg, #4f7cff, #7c5cff) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+body:not(.light) .app-layout.modern .topbar-search-cluster.modern-search {
+  background: rgba(20, 25, 40, 0.65) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25) !important;
+}
+
+body:not(.light) .app-layout.modern .topbar-search-cluster.modern-search:focus-within {
+  border-color: rgba(110, 168, 255, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(110, 168, 255, 0.18) !important;
+}
+
+/* Topbar spacing */
+body:not(.light) .topbar-right {
+  gap: 12px !important;
+}
+
+body:not(.light) .topbar-left {
+  gap: 14px !important;
+}
+
+/* ===== SIDEBAR (blend like login glass) ===== */
+body:not(.light) .sidebar {
+  background: rgba(20, 25, 40, 0.55);
+  backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Sidebar section headings (DASHBOARD, INSTITUTE, etc.) */
+body:not(.light) .sidebar-section-title,
+body:not(.light) .sidebar .sidebar-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+  padding: 12px 16px 6px;
+  font-weight: 600;
+}
+
+/* Remove button styling from section headers */
+body:not(.light) .sidebar .sidebar-section-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+body:not(.light) .sidebar .sidebar-section-label:hover {
+  background: transparent !important;
+}
+
+body:not(.light) .sidebar .nav-item {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 4px 8px;
+  font-size: 14px;
+}
+
+/* Spacing between sidebar sections */
+body:not(.light) .sidebar-section {
+  margin-bottom: 10px;
+}
+
+body:not(.light) .sidebar .nav-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body:not(.light) .sidebar .nav-item.active {
+  background: linear-gradient(135deg, #4f7cff, #7c5cff);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(79, 124, 255, 0.25);
+  position: relative;
+}
+
+body:not(.light) .sidebar .nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  opacity: 0.65;
+}
+
+/* ===== HEADINGS (no dark text on dark bg) ===== */
+h1,
+h2,
+h3 {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+p,
+span,
+small {
+  color: var(--text-secondary);
+}
+
+label,
+.muted {
+  color: var(--text-muted);
+}
+
+/* ===== CARDS (match login glass) ===== */
+body:not(.light) .card,
+body:not(.light) .dashboard-card {
+  background: rgba(20, 25, 40, 0.85) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  border-radius: 14px;
+  transition: all 0.25s ease;
+}
+
+/* More breathing room (dash sections are already cards) */
+body:not(.light) .page.dashboard section.card {
+  padding: 18px 18px;
+}
+
+/* Kill any lingering light blocks in dashboard components */
+body:not(.light) .page.dashboard .dashboard-card,
+body:not(.light) .dashboard-card,
+body:not(.light) .page.dashboard .card,
+body:not(.light) .card {
+  background: rgba(20, 25, 40, 0.85) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  border-radius: 14px;
+}
+
+body:not(.light) .card:hover {
+  border-color: rgba(79,140,255,0.5);
+  box-shadow: 0 0 30px rgba(79,140,255,0.25);
+  transform: translateY(-2px);
+}
+
+/* Empty states: centered + readable on glass */
+body:not(.light) .page.dashboard .ds-empty-state,
+body:not(.light) .dashboard-empty-state {
+  background: rgba(20, 25, 40, 0.55) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(8px);
+  text-align: center;
+}
+
+body:not(.light) .page.dashboard .ds-empty-state .page-state__title,
+body:not(.light) .dashboard-empty-state .page-state__title {
+  color: var(--text-primary) !important;
+}
+
+/* OTP resend (verify screen) */
+.otp-resend {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.otp-resend__link {
+  color: #3b82f6;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.otp-resend__disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Light mode surfaces */
+body.light .card,
+body.light .dashboard-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body.light .sidebar {
+  background: #f9fafb;
+  backdrop-filter: none;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* ===== INSIGHT ROWS ===== */
+.ai-insight, .insight-item {
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ===== BUTTONS (match login gradient) ===== */
+button,
+.btn-primary {
+  background: linear-gradient(135deg, #6ea8ff, #8b5cf6) !important;
+  border: none !important;
+  color: white !important;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+button:hover {
+  box-shadow: 0 0 20px rgba(79,140,255,0.6);
+}
+
+/* ===== FLOATING CHAT BUTTON (bottom-right) ===== */
+.chat-float {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+
+  background: linear-gradient(135deg, #6ea8ff, #8b5cf6);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.chat-float:hover {
+  transform: scale(1.05);
+}
+
+/* ===== CHAT POPUP WINDOW (align to bottom-right) ===== */
+.chat-window {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  left: auto !important;
+  width: 320px;
+  height: 420px;
+  z-index: 9999;
+}
+
+/* Chat UI: glass styling */
+.chat-window {
+  background: rgba(20, 25, 40, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.chat-header {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.chat-input {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  color: #ffffff;
+}
+
+/* Chat FAB polish */
+.chat-fab {
+  background: linear-gradient(135deg, #4f7cff, #7c5cff);
+  box-shadow: 0 6px 18px rgba(79, 124, 255, 0.4);
+  border-radius: 50%;
+}
+
+.chat-fab:hover {
+  transform: scale(1.08);
+}

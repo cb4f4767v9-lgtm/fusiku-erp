@@ -628,9 +628,9 @@ body[dir='rtl'] .login-brand-logo--corner,
   align-items: center;
   justify-content: center;
   gap: 6px;
-  opacity: 0.55;
+  opacity: 0.68;
   font-size: 12px;
-  color: #8a8a8a;
+  color: rgba(15, 23, 42, 0.58);
 }
 
 .powered-logo {

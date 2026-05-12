@@ -23,6 +23,7 @@ export function applyTheme(mode: ThemeMode) {
   if (mode === 'dark') root.classList.add('dark')
   else root.classList.remove('dark')
   try {
+    document.body.classList.toggle('light', mode === 'light')
     localStorage.setItem(STORAGE_KEY, mode)
   } catch {
     /* ignore */

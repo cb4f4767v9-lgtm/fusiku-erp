@@ -1,19 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import '../utils/chartJsRegister';
-import { Bar } from 'react-chartjs-2';
 import { reportsApi, repairsApi, refurbishApi } from '../services/api';
-import { useAuth } from '../hooks/useAuth';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { DollarSign, ClipboardList } from 'lucide-react';
 import { useBranding } from '../contexts/BrandingContext';
 import { getTrialCalendarDaysRemaining, getTrialUiState } from '../utils/billingUi';
-import { getBillingMailtoProHref } from '../config/billingContact';
-import { EmptyState, PageLayout, PageHeader, ErrorState } from '../components/design-system';
+import { PageLayout, PageHeader, ErrorState } from '../components/design-system';
 import { DashboardSkeleton } from '../components/PageStates';
 import { persistDesktopCache } from '../offline/desktopCache';
-import { formatDateForUi } from '../utils/formatting';
+import { TrialBanner } from '../components/dashboard/TrialBanner';
+import { KPISection } from '../components/dashboard/KPISection';
+import { RevenueChart } from '../components/dashboard/RevenueChart';
+import { RecentSales } from '../components/dashboard/RecentSales';
+import { QuickActions } from '../components/dashboard/QuickActions';
+import { AIInsightPanel } from '../components/dashboard/AIInsightPanel';
+import { SmartActions } from '../components/dashboard/SmartActions';
 
 const POST_SIGNUP_WELCOME_KEY = 'fusiku_post_signup_welcome';
 /** Matches GET /reports/monthly-revenue monthly buckets (not a rolling 30-day window). */
@@ -21,7 +22,6 @@ const REVENUE_CHART_MONTHS = 6;
 
 export function DashboardPage() {
   const { t } = useTranslation();
-  useAuth();
   const { companyName } = useBranding();
   const { selectedCurrency, ledgerBaseCurrency, convert, formatMoney } = useCurrency();
   /** `null` = summary not loaded yet or failed; object = loaded (may be empty). */
@@ -55,7 +55,7 @@ export function DashboardPage() {
 
   const dismissWelcome = useCallback(() => setShowWelcomeBanner(false), []);
 
-  const loadDashboard = useCallback(() => {
+  const loadDashboard = useCallback((_opts?: { manualRetry?: boolean }) => {
     setLoading(true);
     setDashboardSummaryFailed(false);
 
@@ -200,15 +200,17 @@ export function DashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-    const onRefresh = () => loadDashboard();
+    const onRefresh = () => loadDashboard({ manualRetry: true });
     window.addEventListener('fusiku-dashboard-refresh', onRefresh);
     return () => window.removeEventListener('fusiku-dashboard-refresh', onRefresh);
-  }, [loadDashboard]);
+    // Once per mount only — failures must not schedule follow-up loads via deps churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
       <PageLayout className="page dashboard">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', padding: 24 }}>
+        <div className="dashboard-page-stack" style={{ width: '100%' }}>
           <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
           <DashboardSkeleton />
         </div>
@@ -301,40 +303,22 @@ export function DashboardPage() {
 
   return (
     <PageLayout className="page dashboard">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
-
-        {showWelcomeBanner && (
-          <div className="dashboard-welcome-banner" role="status">
-            <p className="dashboard-welcome-banner__text">{t('dashboard.welcomeFusiku')}</p>
-            <button type="button" className="dashboard-welcome-banner__dismiss" onClick={dismissWelcome}>
-              {t('common.close')}
-            </button>
-          </div>
-        )}
-        {trialState === 'active' && trialCountdownLabel && (
-          <div className="dashboard-trial-strip" role="status">
-            <div className="dashboard-trial-strip__main">
-              <span className="dashboard-trial-strip__dot" aria-hidden />
-              <span className="dashboard-trial-strip__label">{t('billing.trialActive')}</span>
-            </div>
-            <p className="dashboard-trial-strip__countdown">{trialCountdownLabel}</p>
-          </div>
-        )}
-        {trialState === 'expired' && (
-          <div className="dashboard-trial-expired" role="alert">
-            <h2 className="dashboard-trial-expired__title">{t('billing.trialExpiredTitle')}</h2>
-            <p className="dashboard-trial-expired__body">{t('billing.trialExpiredBody')}</p>
-            <div className="dashboard-trial-expired__actions">
-              <Link to="/settings#billing-plans-section" className="btn btn-primary">
-                {t('billing.trialExpiredCta')}
-              </Link>
-              <a className="btn btn-secondary" href={getBillingMailtoProHref()}>
-                {t('billing.contactForPro')}
-              </a>
-            </div>
-          </div>
-        )}
-        <PageHeader title={t('dashboard.title')} subtitle={t('dashboard.subtitle')} />
+      <div className="dashboard-page-stack" style={{ width: '100%' }}>
+        <TrialBanner
+          showWelcomeBanner={showWelcomeBanner}
+          onDismissWelcome={dismissWelcome}
+          trialState={trialState}
+          trialCountdownLabel={trialCountdownLabel}
+          t={t}
+        />
+        <PageHeader
+          title={
+            <>
+              <span>{t('dashboard.title', { defaultValue: 'Dashboard' })}</span> Overview
+            </>
+          }
+          subtitle={t('dashboard.subtitle')}
+        />
         {!showLoadFailed && (safeData.reportingNotice || safeData.dataQuality?.hasLegacyCost) && (
           <div className="card dashboard-financial-notice" role="status">
             {safeData.reportingNotice && <p className="dashboard-financial-notice__line">{safeData.reportingNotice}</p>}
@@ -353,7 +337,7 @@ export function DashboardPage() {
             className="dashboard-load-failed"
             message={t('dashboard.loadFailed')}
             hint={t('dashboard.loadFailedHint')}
-            onRetry={loadDashboard}
+            onRetry={() => loadDashboard({ manualRetry: true })}
             retryLabel={t('dashboard.retryLoad')}
           />
         )}
@@ -366,150 +350,19 @@ export function DashboardPage() {
               </div>
             ) : null}
 
-            {isFirstTime ? (
-              <section className="section card dashboard-first-time" aria-label={t('dashboard.welcome', { defaultValue: 'Welcome' })}>
-                <div className="dashboard-first-time__head">
-                  <h2 className="dashboard-first-time__title">
-                    {t('dashboard.welcomeTitle', { defaultValue: 'Welcome — you’re ready to run your business' })}
-                  </h2>
-                  <p className="dashboard-first-time__hint muted">
-                    {t('dashboard.welcomeHint', {
-                      defaultValue:
-                        'Track every phone by IMEI, manage branches, see profit live, and work in multiple currencies — with automatic insights built in.',
-                    })}
-                  </p>
-                </div>
-                <div className="dashboard-first-time__actions">
-                  <Link to="/inventory?new=1" className="btn btn-primary">
-                    {t('dashboard.addProduct', { defaultValue: 'Add product' })}
-                  </Link>
-                  <Link to="/pos" className="btn btn-secondary">
-                    {t('dashboard.createSale', { defaultValue: 'Create sale' })}
-                  </Link>
-                </div>
-              </section>
-            ) : null}
+            <AIInsightPanel t={t} />
 
-            <section className="section card dashboard-hero" aria-label={t('dashboard.ariaExecutiveKpis')}>
-              <div className="dashboard-hero__head">
-                <div className="dashboard-hero__title-wrap">
-                  <p className="dashboard-hero__kicker">{t('dashboard.executive.title')}</p>
-                  <h2 className="dashboard-hero__title">{t('dashboard.executive.hint')}</h2>
-                </div>
-                <div className={`dashboard-risk-badge dashboard-risk-badge--${riskTone}`} role="status">
-                  {riskTone === 'danger'
-                    ? t('dashboard.riskHigh')
-                    : riskTone === 'warn'
-                      ? t('dashboard.riskMedium')
-                      : t('dashboard.riskLow')}
-                </div>
-              </div>
-
-              <div
-                className="dashboard-hero__kpis"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: 16,
-                }}
-              >
-                {primaryKpis.map(({ labelKey, value, tone }) => (
-                  <div
-                    key={labelKey}
-                    className={`card dashboard-mini-kpi dashboard-mini-kpi--${tone} ds-has-tooltip`}
-                    tabIndex={0}
-                    data-tooltip={t('dashboard.kpiTooltip', {
-                      defaultValue:
-                        'Totals shown are lifetime values from your reports, converted to your selected display currency where applicable.',
-                    })}
-                    style={{ padding: 20 }}
-                  >
-                    <span className="dashboard-mini-kpi__label">{t(labelKey)}</span>
-                    <span className="dashboard-mini-kpi__value" style={{ fontSize: 24, fontWeight: 600 }}>
-                      {value}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="section card chart-container dashboard-chart-card" aria-label={t('dashboard.revenueByMonth', { count: REVENUE_CHART_MONTHS })}>
-              <div className="dashboard-chart-card__head">
-                <h3
-                  className="dashboard-chart-card__title ds-has-tooltip"
-                  tabIndex={0}
-                  data-tooltip={t('dashboard.revenueChartTooltip', {
-                    defaultValue:
-                      'Revenue is grouped by month (not a rolling 30 days) and converted to your selected display currency.',
-                  })}
-                >
-                  {t('dashboard.revenueByMonth', { count: REVENUE_CHART_MONTHS })}
-                </h3>
-                <p className="dashboard-chart-card__subtitle muted">{t('dashboard.revenueChartSubtitle')}</p>
-              </div>
-              <div className="dashboard-chart dashboard-chart--primary">
-                {monthlyRevenueSorted.length > 0 ? (
-                  <Bar data={chartData} options={chartOptions} />
-                ) : (
-                  <div className="dashboard-empty-state premium" role="status">
-                    <p className="dashboard-empty-state__text">{t('dashboard.emptyRevenueChart')}</p>
-                    <span className="dashboard-empty-state__hint">Start by adding purchases or sales</span>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="section card dashboard-activity" aria-label={t('dashboard.recentSales')}>
-              <div className="dashboard-section-head">
-                <h3 className="dashboard-section-head__title">{t('dashboard.recentSales')}</h3>
-                <div className="dashboard-activity__actions">
-                  <Link to="/reports" className="btn btn-secondary">
-                    {t('nav.reports')}
-                  </Link>
-                </div>
-              </div>
-              {(safeData.recentSales || []).length ? (
-                <div className="table-container">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>{t('reports.date')}</th>
-                        <th className="num">{t('reports.amount')}</th>
-                        <th className="num">{t('reports.profit')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(safeData.recentSales || []).slice(0, 8).map((sale: any, saleIdx: number) => {
-                        const raw = sale.createdAt ? new Date(sale.createdAt) : null;
-                        const dateLabel = raw && !Number.isNaN(raw.getTime()) ? formatDateForUi(raw) : '—';
-                        const rowKey =
-                          sale?.id != null && String(sale.id).length > 0 ? String(sale.id) : `recent-sale-${saleIdx}`;
-                        return (
-                          <tr key={rowKey}>
-                            <td>{dateLabel}</td>
-                            <td className="num">{money(sale.totalAmount)}</td>
-                            <td className="num">{money(sale.profit ?? 0)}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <EmptyState
-                  icon={<ClipboardList />}
-                  title={t('dashboard.noRecentSales', { defaultValue: 'No sales yet' })}
-                  description={t('dashboard.noRecentSalesHint', {
-                    defaultValue: 'Create your first sale in POS — it will appear here instantly.',
-                  })}
-                  action={
-                    <Link to="/pos" className="btn btn-primary">
-                      <DollarSign size={16} /> {t('nav.pos')}
-                    </Link>
-                  }
-                />
-              )}
-            </section>
+            <QuickActions t={t} show={isFirstTime} />
+            <KPISection t={t} riskTone={riskTone} primaryKpis={primaryKpis} />
+            <SmartActions t={t} />
+            <RevenueChart
+              t={t}
+              months={REVENUE_CHART_MONTHS}
+              hasData={monthlyRevenueSorted.length > 0}
+              chartData={chartData}
+              chartOptions={chartOptions}
+            />
+            <RecentSales t={t} recentSales={Array.isArray(safeData.recentSales) ? safeData.recentSales : []} money={money} />
           </>
         )}
       </div>

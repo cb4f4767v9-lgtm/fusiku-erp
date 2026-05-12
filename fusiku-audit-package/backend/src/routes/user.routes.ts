@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { userController } from '../controllers/user.controller';
+import { requirePermission } from '../middlewares/permission.middleware';
+
+const router = Router();
+
+router.use(requirePermission('manage_users'));
+
+router.get('/', userController.getAll);
+router.get('/:id', userController.getById);
+router.post('/', userController.create);
+router.put('/:id', userController.update);
+router.delete('/:id', userController.delete);
+
+export const userRoutes = router;

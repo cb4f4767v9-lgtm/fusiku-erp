@@ -1,0 +1,158 @@
+/* FUSIKU design system — typography, 8px spacing scale, surfaces */
+
+:root {
+  --ds-space-1: 8px;
+  --ds-space-2: 16px;
+  --ds-space-3: 24px;
+  --ds-space-4: 32px;
+
+  --font-h1-size: 24px;
+  --font-h1-weight: 600;
+  --font-h1-line: 1.3;
+
+  --font-h2-size: 20px;
+  --font-h2-weight: 600;
+  --font-h2-line: 1.35;
+
+  --font-h3-size: 18px;
+  --font-h3-weight: 500;
+  --font-h3-line: 1.4;
+
+  --font-body-size: 14px;
+  --font-body-weight: 400;
+  --font-body-line: 1.5;
+
+  --font-small-size: 12px;
+  --font-small-line: 1.45;
+}
+
+/* App content typography (shell topbar unchanged) */
+.ds-container,
+.ds-page-layout {
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  line-height: var(--font-body-line);
+}
+
+.ds-page-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.ds-h1,
+.ds-page-layout h1:not(.erp-page-header__title) {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--font-h1-size);
+  font-weight: var(--font-h1-weight);
+  line-height: var(--font-h1-line);
+  color: var(--text-primary);
+}
+
+.ds-h2 {
+  margin: 0 0 var(--ds-space-2);
+  font-size: var(--font-h2-size);
+  font-weight: var(--font-h2-weight);
+  line-height: var(--font-h2-line);
+  color: var(--text-primary);
+}
+
+.ds-h3 {
+  margin: 0 0 var(--ds-space-1);
+  font-size: var(--font-h3-size);
+  font-weight: var(--font-h3-weight);
+  line-height: var(--font-h3-line);
+  color: var(--text-primary);
+}
+
+.ds-text-small {
+  font-size: var(--font-small-size);
+  line-height: var(--font-small-line);
+}
+
+.ds-card {
+  background: var(--bg-card);
+  border: var(--ds-card-border);
+  border-radius: var(--ds-card-radius);
+  box-shadow: var(--ds-card-shadow);
+  padding: var(--ds-space-3);
+  box-sizing: border-box;
+}
+
+.ds-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ds-table-wrap {
+  /* extends .table-container when both classes used */
+  min-width: 0;
+}
+
+/* Standard page header — align with h1 scale */
+.erp-page-header--standard {
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-3);
+  padding-bottom: var(--ds-space-2);
+  position: relative;
+}
+
+.erp-page-header__title {
+  font-size: var(--font-h1-size);
+  font-weight: var(--font-h1-weight);
+  line-height: var(--font-h1-line);
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.erp-page-header__subtitle {
+  font-size: var(--font-body-size);
+  font-weight: var(--font-body-weight);
+  color: var(--text-secondary);
+  max-width: 100%;
+}
+
+.erp-page-header__actions {
+  gap: var(--ds-space-2);
+}
+
+.erp-page-header--standard::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: min(140px, 18%);
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 72%, white), transparent);
+}
+
+/* Legacy ERP list header row */
+.erp-page-header {
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-2);
+}
+
+.page-title {
+  font-size: var(--font-h1-size);
+  font-weight: var(--font-h1-weight);
+  line-height: var(--font-h1-line);
+}
+
+.page-subtitle {
+  font-size: var(--font-body-size);
+  color: var(--text-secondary);
+  margin: var(--ds-space-1) 0 0;
+}
+
+/* Sidebar nav icon alignment */
+.sidebar .nav-item > svg {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.page-header-subtitle {
+  font-size: var(--font-body-size);
+}

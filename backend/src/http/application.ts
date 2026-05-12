@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import express from 'express';
 import * as Sentry from '@sentry/node';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -11,6 +12,7 @@ import { getHttpCorsOptions } from '../config/httpCors';
 import { createPrefixRedisRateLimitStore } from '../config/rateLimitStores';
 import { v1Router } from '../routes/v1/index';
 import { authRoutes } from '../routes/auth.routes';
+import { otpRoutes } from '../routes/otp.routes';
 import { performanceMiddleware, getMetrics } from '../middlewares/performance.middleware';
 import { logger } from '../utils/logger';
 import { apiSuccessEnvelopeMiddleware } from '../middlewares/apiSuccessEnvelope.middleware';
@@ -36,6 +38,13 @@ if (!fs.existsSync(FRONTEND_INDEX)) {
 export function buildApplication() {
   const app = express();
 
+  // CORS must run BEFORE helmet/rate-limit/error handlers so error responses
+  // (including 429 and helmet rejections) still carry Access-Control-Allow-Origin.
+  // Otherwise the browser reports a generic "CORS blocked" for any non-2xx.
+  const corsOptions = getHttpCorsOptions();
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
+
   app.use(helmet({ crossOriginEmbedderPolicy: false }));
   app.use(requestIdMiddleware());
   app.use(
@@ -56,6 +65,10 @@ export function buildApplication() {
       legacyHeaders: false,
       // Avoid counting errors during partial outages; reduces feedback loops.
       skipFailedRequests: true,
+      // Browser preflight (OPTIONS) must never be rate-limited; otherwise the
+      // first heavy page-load can trigger a 429 on a preflight and the browser
+      // reports it as a CORS failure with no useful message.
+      skip: (req) => req.method === 'OPTIONS',
       store: (() => {
         // Redis is optional. If not configured (or store init fails), fail open using in-memory counters.
         if (!process.env.REDIS_URL) return undefined;
@@ -69,14 +82,13 @@ export function buildApplication() {
     })
   );
 
-  app.use(cors(getHttpCorsOptions()));
-  app.options('*', cors(getHttpCorsOptions()));
-
   // Stripe requires raw body for signature verification; mount BEFORE json parser.
   app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), stripeWebhookHandler);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  // Required for the HttpOnly refresh-token cookie (`fusiku_rt`).
+  app.use(cookieParser());
 
   app.use(apiSuccessEnvelopeMiddleware());
 
@@ -135,6 +147,7 @@ export function buildApplication() {
   }
 
   app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/otp', otpRoutes);
   app.use('/api/v1', v1Router);
   app.use('/api/public/v1', publicApiRoutes);
 

@@ -5,7 +5,6 @@ import { BrowserRouter } from 'react-router-dom';
 import { I18nextProvider } from 'react-i18next';
 
 import i18n from './i18n';
-import { AppStateProvider } from './contexts/AppStateProvider';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from 'react-hot-toast';
@@ -31,31 +30,28 @@ import './styles/login.css';
 import './styles/components.css';
 import './styles/brand.css';
 import './styles/design-system.css';
+import './styles/datatable.css';
+import './styles/final.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <I18nextProvider i18n={i18n}>
       <BrowserRouter>
         <ErrorBoundary>
-          <AppStateProvider>
-            <App />
+          <App />
 
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 3200,
-                style: {
-                  background: '#ffffff',
-                  color: '#111827',
-                  border: '1px solid rgba(15, 23, 42, 0.08)',
-                  borderRadius: '12px',
-                  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.12)',
-                  padding: '10px 12px',
-                  fontSize: '13px',
-                },
-              }}
-            />
-          </AppStateProvider>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3200,
+              className: 'fusiku-toast',
+              style: {
+                borderRadius: '12px',
+                padding: '10px 12px',
+                fontSize: '13px',
+              },
+            }}
+          />
         </ErrorBoundary>
       </BrowserRouter>
     </I18nextProvider>

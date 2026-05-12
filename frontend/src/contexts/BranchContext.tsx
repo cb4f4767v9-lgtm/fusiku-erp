@@ -63,6 +63,13 @@ export function BranchProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (!user?.id) {
+      setBranches([]);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
     setLoading(true);
     branchesApi
       .getAll()
@@ -80,7 +87,7 @@ export function BranchProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user?.id]);
 
   const setSelectedBranchId = (branchId: string) => {
     const next = String(branchId || '').trim();

@@ -5,24 +5,26 @@ import { BrandingProvider } from './BrandingContext';
 import { CurrencyProvider } from './CurrencyContext';
 import { BranchProvider } from './BranchContext';
 
-/** Composes root providers: auth → theme → branding → currency (display FX). */
+/**
+ * Single root provider tree mounted once from `App.tsx` (not inside route
+ * elements). Order: auth → theme → branding → currency → branch.
+ * Branding/Currency/Branch no-op or short-circuit when logged out (no token/user).
+ */
 export function AppStateProvider({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
       <ThemeProvider>
-        {children}
+        <BrandingProvider>
+          <CurrencyProvider>
+            <BranchProvider>{children}</BranchProvider>
+          </CurrencyProvider>
+        </BrandingProvider>
       </ThemeProvider>
     </AuthProvider>
   );
 }
 
-/** Providers that should only run in the authenticated app (they call protected APIs). */
+/** @deprecated Use `AppStateProvider` only — kept for incremental refactors / imports. */
 export function ProtectedAppProviders({ children }: { children: ReactNode }) {
-  return (
-    <BrandingProvider>
-      <CurrencyProvider>
-        <BranchProvider>{children}</BranchProvider>
-      </CurrencyProvider>
-    </BrandingProvider>
-  );
+  return <>{children}</>;
 }
