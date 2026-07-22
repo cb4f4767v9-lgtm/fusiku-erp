@@ -44,6 +44,23 @@ export const TENANT_MODELS = new Set<string>([
   'IMEIHistory',
   'IMEIRecord',
   'Incident',
+  // Onboarding / institute / catalog / chat — all carry companyId
+  'SetupProfile',
+  'InstituteStudent',
+  'InstituteCourse',
+  'InstituteBatch',
+  'InstituteEnrollment',
+  'InstituteFeeCharge',
+  'InstituteAttendance',
+  'InstituteExam',
+  'InstituteExamResult',
+  'PartCatalogSeries',
+  'PartCatalogSuggestion',
+  'SourcingRequest',
+  'PricingRule',
+  'Quotation',
+  'ChatRoom',
+  'ChatMessage',
 ]);
 
 /** Models where non–super-admin users are restricted to their JWT `branchId`. */
@@ -61,4 +78,8 @@ export const BRANCH_SCOPED_MODELS = new Set<string>([
   'AIAlert',
   'ProfitReport',
   'InventoryPart',
+  'InstituteStudent',
+  'InstituteAttendance',
+  'InstituteExam',
+  'Transfer',
 ]);

@@ -340,56 +340,79 @@ export const invoiceService = {
     if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payment amount must be > 0');
 
     const amountUsd = amountToUsdWithStoredRate(amount, currency, fx);
-
-    const payment = await prisma.payment.create({
-      data: {
-        companyId,
-        invoiceId: inv.id,
-        branchId: inv.branchId,
-        customerId: inv.customerId,
-        amount,
-        currency,
-        amountUsd,
-        exchangeRateAtTransaction: fx,
-        method: data.method || 'cash',
-        reference: data.reference,
-        paidAt: data.paidAt || new Date(),
-        status: 'completed',
-      } as any,
-    });
-
-    // Recompute paid + status.
-    const payments = await prisma.payment.findMany({
-      where: applyBranchScope(ctx || {}, { companyId, invoiceId: inv.id, status: 'completed' } as any) as any
-    });
-    const amountPaid = roundMoney(sumMoney(payments.map((p: any) => Number(p.amount || 0))), 6);
-    const amountPaidUsd = roundUsd(sumMoney(payments.map((p: any) => Number(p.amountUsd || 0))));
-
-    if (amountPaid > Number(inv.totalAmount || 0)) {
+    const totalAmount = Number(inv.totalAmount || 0);
+    const alreadyPaid = Number(inv.amountPaid || 0);
+    if (alreadyPaid + amount > totalAmount + 1e-9) {
       throw new Error('Overpayment not allowed');
     }
 
-    const status = computeInvoiceStatus(Number(inv.totalAmount || 0), amountPaid);
+    const result = await prisma.$transaction(async (tx) => {
+      // Lock invoice row so concurrent payments cannot race past the overpayment check.
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM "Invoice" WHERE id = $1 AND "companyId" = $2 FOR UPDATE`,
+        inv.id,
+        companyId
+      );
 
-    await prisma.invoice.updateMany({
-      where: applyBranchScope(ctx || {}, { id: inv.id, companyId } as any) as any,
-      data: { amountPaid, amountPaidUsd, status } as any,
+      const locked = await tx.invoice.findFirst({
+        where: applyBranchScope(ctx || {}, { id: inv.id, companyId } as any) as any,
+      });
+      if (!locked) throw new Error('Invoice not found');
+
+      const paidSoFar = Number(locked.amountPaid || 0);
+      if (paidSoFar + amount > Number(locked.totalAmount || 0) + 1e-9) {
+        throw new Error('Overpayment not allowed');
+      }
+
+      const payment = await tx.payment.create({
+        data: {
+          companyId,
+          invoiceId: locked.id,
+          branchId: locked.branchId,
+          customerId: locked.customerId,
+          amount,
+          currency,
+          amountUsd,
+          exchangeRateAtTransaction: fx,
+          method: data.method || 'cash',
+          reference: data.reference,
+          paidAt: data.paidAt || new Date(),
+          status: 'completed',
+        } as any,
+      });
+
+      const payments = await tx.payment.findMany({
+        where: applyBranchScope(ctx || {}, { companyId, invoiceId: locked.id, status: 'completed' } as any) as any,
+      });
+      const amountPaid = roundMoney(sumMoney(payments.map((p: any) => Number(p.amount || 0))), 6);
+      const amountPaidUsd = roundUsd(sumMoney(payments.map((p: any) => Number(p.amountUsd || 0))));
+      if (amountPaid > Number(locked.totalAmount || 0) + 1e-9) {
+        throw new Error('Overpayment not allowed');
+      }
+
+      const status = computeInvoiceStatus(Number(locked.totalAmount || 0), amountPaid);
+      await tx.invoice.updateMany({
+        where: applyBranchScope(ctx || {}, { id: locked.id, companyId } as any) as any,
+        data: { amountPaid, amountPaidUsd, status } as any,
+      });
+
+      return { payment, status, amountPaid, amountPaidUsd };
     });
 
     await auditLogService.log({
       action: 'invoice_payment_add',
       entity: 'Payment',
-      entityId: payment.id,
+      entityId: result.payment.id,
       branchId: inv.branchId,
       metadata: {
         invoiceId: inv.id,
         amount,
         currency,
-        status,
+        status: result.status,
       },
     });
 
-    return { payment, status, amountPaid, amountPaidUsd };
+    return result;
   },
 };
 

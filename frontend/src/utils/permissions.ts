@@ -4,7 +4,8 @@ export type ModuleKey = string;
 
 export function isSuperAdmin(user: AuthUser | null | undefined): boolean {
   if (!user) return false;
-  return user.branchRole === 'SUPER_ADMIN' || !user.branchId;
+  // Require an explicit super-admin signal — missing branchId alone must not unlock all modules.
+  return user.branchRole === 'SUPER_ADMIN';
 }
 
 export function canAccessBranch(

@@ -258,7 +258,7 @@ export const posService = {
         }
       }
 
-      await tx.invoice.create({
+      const inv = await tx.invoice.create({
         data: {
           companyId,
           branchId: data.branchId,
@@ -270,11 +270,11 @@ export const posService = {
           discountPercent,
           totalAmount,
           totalAmountUsd,
-          amountPaid: 0,
-          amountPaidUsd: 0,
+          amountPaid: totalAmount,
+          amountPaidUsd: totalAmountUsd,
           profit,
           profitUsd,
-          status: 'unpaid',
+          status: 'paid',
           notes: data.notes,
           createdById: data.userId,
           items: {
@@ -291,6 +291,23 @@ export const posService = {
               description: si.imei,
             })),
           },
+        } as any,
+      });
+
+      // POS collects payment at the counter — record a matching Payment so AR/dashboards stay accurate.
+      await tx.payment.create({
+        data: {
+          companyId,
+          branchId: data.branchId,
+          customerId: data.customerId || null,
+          saleId: s.id,
+          invoiceId: inv.id,
+          amount: totalAmount,
+          currency,
+          amountUsd: totalAmountUsd,
+          exchangeRateAtTransaction,
+          method: data.paymentMethod || 'cash',
+          status: 'completed',
         } as any,
       });
 

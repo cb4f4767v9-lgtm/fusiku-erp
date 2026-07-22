@@ -73,12 +73,14 @@ export const tenantIsolationMiddleware: Prisma.Middleware = async (params, next)
   }
 
   // ---------- WHERE scoping (safe actions only) ----------
-  if (companyId && args.where && shouldApplyWhereFilter(action)) {
+  // Always inject companyId when present — even if the caller omitted `where`.
+  // Previously `args.where &&` skipped scoping for findMany/count without a where clause.
+  if (companyId && shouldApplyWhereFilter(action)) {
     args.where = mergeCompany(args.where, companyId);
   }
 
-  if (params.model && BRANCH_SCOPED_MODELS.has(params.model) && args.where && shouldApplyWhereFilter(action)) {
-    args.where = applyBranchScope(ctx || {}, args.where);
+  if (params.model && BRANCH_SCOPED_MODELS.has(params.model) && shouldApplyWhereFilter(action)) {
+    args.where = applyBranchScope(ctx || {}, args.where || {});
   }
 
   if (action === 'create' && args.data && companyId) {

@@ -82,7 +82,7 @@ interface AuthContextType {
   requestOtp: (email: string) => Promise<{ challengeId: string; expiresInSeconds: number }>;
   verifyOtp: (challengeId: string, code: string) => Promise<{ isNewUser: boolean }>;
   setSession: (token: string, user: AuthUser, refreshToken?: string | null) => void;
-  logout: () => void;
+  logout: () => void | Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -302,7 +302,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const effectiveCompanyId = String(rawUser?.companyId || '').trim();
     if (!effectiveCompanyId) return { isNewUser: true };
-    return { isNewUser: false };
+    const isNewUser = Boolean(d.isNewUser);
+    return { isNewUser };
   };
 
   const resendDeviceOtp = async (challengeId: string) => {
@@ -375,7 +376,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch {
+      /* best-effort server revoke; still clear local session */
+    }
     clearStoredAccessToken();
     clearStoredRefreshToken();
     setAccessTokenInMemory(null);

@@ -12,7 +12,7 @@
     "worker": "tsx src/worker-entry.ts",
     "prisma:generate": "prisma generate",
     "build:full": "prisma generate && tsc",
-    "build": "tsc -p ts.config.json",
+    "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",

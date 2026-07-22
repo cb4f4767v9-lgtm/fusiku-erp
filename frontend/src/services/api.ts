@@ -50,6 +50,18 @@ export class LoginDeviceVerificationRequiredError extends Error {
   }
 }
 
+/** Write was accepted into the local offline outbox — not a completed business operation. */
+export class OfflineQueuedError extends Error {
+  override name = 'OfflineQueuedError';
+  readonly outboxId: string;
+  readonly kind: string;
+  constructor(outboxId: string, kind: string) {
+    super('Request queued for offline sync');
+    this.outboxId = outboxId;
+    this.kind = kind;
+  }
+}
+
 /** Must be `/api/v1` (or absolute `.../api/v1`), never `.../api/v1/auth` — auth uses paths `/auth/login`, etc. */
 const API_BASE = resolveApiV1BaseUrl();
 
@@ -204,7 +216,7 @@ api.interceptors.request.use((config) => {
   // Backend is authoritative; this prevents UI branchId spoofing.
   if (token) {
     const scope = getSessionBranchScope(token);
-    const isSuper = scope.isSystemAdmin || scope.branchRole === 'SUPER_ADMIN' || !scope.branchId;
+    const isSuper = scope.isSystemAdmin || scope.branchRole === 'SUPER_ADMIN';
     if (!isSuper) {
       // Query params
       if (config.params && typeof config.params === 'object') {
@@ -212,16 +224,11 @@ api.interceptors.request.use((config) => {
           delete (config.params as any).branchId;
         }
       }
-      // JSON body payload
+      // JSON body payload: strip spoofable branchId only.
+      // Keep fromBranchId/toBranchId — transfers require both and backend validates them.
       if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
         if ('branchId' in (config.data as any)) {
           delete (config.data as any).branchId;
-        }
-        if ('fromBranchId' in (config.data as any)) {
-          delete (config.data as any).fromBranchId;
-        }
-        if ('toBranchId' in (config.data as any)) {
-          delete (config.data as any).toBranchId;
         }
       }
     }
@@ -255,13 +262,8 @@ api.interceptors.response.use(
           const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now());
           const payload = cfg?.data ?? null;
           await enqueueWebOutbox({ id, kind, url, payload });
-          return Promise.resolve({
-            data: { queued: true, outboxId: id, kind },
-            status: 202,
-            statusText: 'Accepted',
-            headers: {},
-            config: err.config,
-          } as any);
+          // Reject so callers do not treat the queue ACK as a completed sale/create.
+          return Promise.reject(new OfflineQueuedError(id, kind));
         }
       }
     } catch {
@@ -1190,7 +1192,7 @@ export const importApi = {
     fd.append('file', file);
     const token = readStoredAccessToken();
     const scope = getSessionBranchScope(token);
-    const isSuper = scope.isSystemAdmin || scope.branchRole === 'SUPER_ADMIN' || !scope.branchId;
+    const isSuper = scope.isSystemAdmin || scope.branchRole === 'SUPER_ADMIN';
     const effectiveBranchId = isSuper ? String(branchId || '').trim() : String(scope.branchId || '').trim();
     fd.append('branchId', effectiveBranchId);
     return api.post('/import/inventory', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
@@ -1205,7 +1207,7 @@ export const importApi = {
     fd.append('file', file);
     const token = readStoredAccessToken();
     const scope = getSessionBranchScope(token);
-    const isSuper = scope.isSystemAdmin || scope.branchRole === 'SUPER_ADMIN' || !scope.branchId;
+    const isSuper = scope.isSystemAdmin || scope.branchRole === 'SUPER_ADMIN';
     const effectiveBranchId = isSuper ? String(branchId || '').trim() : String(scope.branchId || '').trim();
     fd.append('branchId', effectiveBranchId);
     fd.append('supplierId', supplierId);

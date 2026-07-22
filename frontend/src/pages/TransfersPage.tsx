@@ -14,13 +14,13 @@ export function TransfersPage() {
   const { user } = useAuth();
   const [transfers, setTransfers] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
-  const [inventory, setInventory] = useState<any>(null);
+  const [inventory, setInventory] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ fromBranchId: '', toBranchId: '', transferMarginPercent: 0, inventoryIds: [] as string[] });
 
   const load = () => {
-    transfersApi.getAll().then((r) => setTransfers(r.data)).catch(() => setTransfers([]));
-    branchesApi.getAll().then((r) => setBranches(r.data)).catch(() => setBranches([]));
+    transfersApi.getAll().then((r) => setTransfers(Array.isArray(r.data) ? r.data : [])).catch(() => setTransfers([]));
+    branchesApi.getAll().then((r) => setBranches(Array.isArray(r.data) ? r.data : [])).catch(() => setBranches([]));
   };
 
   useEffect(() => {
@@ -36,10 +36,14 @@ export function TransfersPage() {
   useEffect(() => {
     if (form.fromBranchId) {
       inventoryApi.getAll({ branchId: form.fromBranchId, status: 'available' })
-        .then((r) => setInventory(r.data ?? null))
-        .catch(() => setInventory(null));
+        .then((r) => {
+          const raw = r.data;
+          // Envelope unwrap already yields an array; tolerate legacy `{ data: [] }` shapes.
+          setInventory(Array.isArray(raw) ? raw : (Array.isArray(raw?.data) ? raw.data : []));
+        })
+        .catch(() => setInventory([]));
     } else {
-      setInventory(null);
+      setInventory([]);
     }
   }, [form.fromBranchId]);
 
@@ -178,7 +182,7 @@ export function TransfersPage() {
               </div>
               <div className="transfer-items">
                 <label>{t('transfers.selectItemsToTransfer')}</label>
-                {(inventory?.data || []).map((item: any) => (
+                {inventory.map((item: any) => (
                   <label key={item.id} className="transfer-item-check">
                     <input
                       type="checkbox"
@@ -188,7 +192,7 @@ export function TransfersPage() {
                     {item.imei} - {item.brand} {item.model} (${Number(item.sellingPrice).toFixed(2)})
                   </label>
                 ))}
-                {(inventory?.data || []).length === 0 && form.fromBranchId && <p>{t('transfers.noAvailableItems')}</p>}
+                {inventory.length === 0 && form.fromBranchId && <p>{t('transfers.noAvailableItems')}</p>}
               </div>
               <button type="submit" className="btn btn-primary" disabled={form.inventoryIds.length === 0}>
                 {t('transfers.createTransfer')}
