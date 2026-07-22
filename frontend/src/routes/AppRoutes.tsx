@@ -82,6 +82,10 @@ const CurrencyPage = lazy(() =>
 const CustomersPage = lazy(() =>
   import('../pages/CustomersPage').then((m) => ({ default: m.CustomersPage }))
 );
+const CustomerFormPage = lazy(() =>
+  import('../pages/CustomerFormPage').then((m) => ({ default: m.CustomerFormPage }))
+);
+const PlansPage = lazy(() => import('../pages/PlansPage'));
 const BranchesPage = lazy(() =>
   import('../pages/BranchesPage').then((m) => ({ default: m.BranchesPage }))
 );
@@ -217,6 +221,7 @@ export function AppRoutes() {
         <Route path="/tutorial" element={<TutorialPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
         <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/plans" element={<PlansPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
@@ -256,6 +261,8 @@ export function AppRoutes() {
           <Route path="currency" element={<ProtectedModuleRoute permissionKey="finance.currency"><CurrencyPage /></ProtectedModuleRoute>} />
 
           <Route path="customers" element={<ProtectedModuleRoute permissionKey="customers.view"><CustomersPage /></ProtectedModuleRoute>} />
+          <Route path="customers/new" element={<ProtectedModuleRoute permissionKey="customers.view"><CustomerFormPage /></ProtectedModuleRoute>} />
+          <Route path="customers/:id/edit" element={<ProtectedModuleRoute permissionKey="customers.view"><CustomerFormPage /></ProtectedModuleRoute>} />
           <Route path="branches" element={<ProtectedModuleRoute permissionKey="branches.manage"><BranchesPage /></ProtectedModuleRoute>} />
           <Route path="branches/new" element={<ProtectedModuleRoute permissionKey="branches.manage"><BranchFormPage /></ProtectedModuleRoute>} />
           <Route path="branches/:id/edit" element={<ProtectedModuleRoute permissionKey="branches.manage"><BranchFormPage /></ProtectedModuleRoute>} />

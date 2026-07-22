@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { inventoryApi, posApi, branchesApi, customersApi, aiApi } from '../services/api';
+import { inventoryApi, posApi, branchesApi, customersApi, aiApi, OfflineQueuedError } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useCurrency } from '../contexts/CurrencyContext';
 import toast from 'react-hot-toast';
@@ -249,6 +249,14 @@ export function POSPage() {
       window.dispatchEvent(new Event('fusiku-dashboard-refresh'));
       toast.success(t('pos.saleCompleted'));
     } catch (err: any) {
+      if (err instanceof OfflineQueuedError) {
+        setCart([]);
+        setDiscountPercent(0);
+        setSelectedCartId(null);
+        toast.success(t('offline.saleQueuedOffline'));
+        window.dispatchEvent(new Event('fusiku-dashboard-refresh'));
+        return;
+      }
       toast.error(getErrorMessage(err, t('pos.saleFailed')));
     } finally {
       setLoading(false);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { inventoryApi, branchesApi, importApi, imeiApi, warrantyApi, aiApi, api } from '../services/api';
+import { inventoryApi, branchesApi, importApi, imeiApi, warrantyApi, aiApi, api, OfflineQueuedError } from '../services/api';
 import toast from 'react-hot-toast';
 import { ChevronDown, ChevronRight, Eye, Pencil, Plus, Trash2, Upload, X, History, AlertTriangle, Boxes, Download, Printer } from 'lucide-react';
 import { getErrorMessage } from '../utils/getErrorMessage';
@@ -316,6 +316,24 @@ export function InventoryPage() {
       setForm({ imei: '', brand: '', model: '', storage: '', color: '', condition: 'refurbished', purchasePrice: '', sellingPrice: '', branchId: '', notes: '' });
       load();
     } catch (err: any) {
+      if (err instanceof OfflineQueuedError) {
+        toast.success(t('offline.inventoryQueuedOffline'));
+        setShowForm(false);
+        setForm({
+          imei: '',
+          brand: '',
+          model: '',
+          storage: '',
+          color: '',
+          condition: 'refurbished',
+          purchasePrice: '',
+          sellingPrice: '',
+          branchId: '',
+          notes: '',
+        });
+        load();
+        return;
+      }
       toast.error(getErrorMessage(err, t('common.failed')));
     }
   };
